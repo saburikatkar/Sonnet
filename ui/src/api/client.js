@@ -304,3 +304,30 @@ export async function geotagDetection(detection, pingMetadata, signal) {
   }
   return response.json()
 }
+/**
+ * 8. Historical Jobs API: GET /api/v1/jobs (B1)
+ * Retrieves paginated list of past detection jobs
+ * @param {Object} [options]
+ * @param {number} [options.skip=0]
+ * @param {number} [options.limit=50]
+ * @param {string} [options.status]
+ * @param {AbortSignal} [signal]
+ * @returns {Promise<{items: Array, total: number, skip: number, limit: number}>}
+ */
+export async function getHistoricalJobs({ skip = 0, limit = 50, status = null } = {}, signal) {
+  const params = new URLSearchParams({ skip: String(skip), limit: String(limit) })
+  if (status) {
+    params.set('status', status)
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/jobs?${params.toString()}`, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+    signal,
+  })
+
+  if (!response.ok) {
+    throw await parseError(response)
+  }
+  return response.json()
+}
