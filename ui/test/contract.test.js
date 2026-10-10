@@ -1,7 +1,7 @@
-﻿import test from 'node:test'
+import test from 'node:test'
 import assert from 'node:assert/strict'
 import { CLASS_TAXONOMY, CLASS_META, ALLOWED_EXTENSIONS } from '../src/constants.js'
-import { API_BASE_URL } from '../src/api/client.js'
+import { API_BASE_URL, initiateDetection, getJobStatus, generateReportApi } from '../src/api/client.js'
 
 test('UI Contract Verification: Taxonomy aligns with B2 docs/api-contract.md', () => {
   const expectedTaxonomy = ['plastic', 'metal', 'fishing_net', 'tire', 'shipwreck', 'unknown']
@@ -51,4 +51,28 @@ test('UI Schema Validation: Standard error envelope shape', () => {
   assert.equal(sampleError.error.code, 'INVALID_FILE')
   assert.equal(typeof sampleError.error.message, 'string')
   assert.equal(typeof sampleError.error.details, 'object')
+})
+
+test('UI Async Workflow: Client exports initiateDetection, getJobStatus, generateReportApi', () => {
+  assert.equal(typeof initiateDetection, 'function')
+  assert.equal(typeof getJobStatus, 'function')
+  assert.equal(typeof generateReportApi, 'function')
+})
+
+test('UI Report Generator Request: Validates format literal and detection array structure', () => {
+  const validReportCsv = {
+    format: 'csv',
+    detections: [
+      {
+        detection_id: 'det_001',
+        class_name: 'plastic',
+        confidence: 0.94,
+        bbox: { x_min: 0.1, y_min: 0.2, x_max: 0.3, y_max: 0.4 },
+        geotag: { latitude: 45.1, longitude: -12.4, depth_meters: 14.5 },
+      },
+    ],
+  }
+  assert.ok(['csv', 'geojson'].includes(validReportCsv.format))
+  assert.ok(Array.isArray(validReportCsv.detections))
+  assert.equal(validReportCsv.detections[0].detection_id, 'det_001')
 })
