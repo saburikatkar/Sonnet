@@ -58,3 +58,9 @@ class DetectResponse(BaseModel):
     status: str
     detections: List[DetectionResult]
 
+
+from typing import Literal
+
+class ReportRequest(BaseModel):
+    format: Literal["csv", "geojson"] = Field(..., description="The format of the report to generate")
+    detections: List[DetectionResult] = Field(..., description="List of detections to include in the report")

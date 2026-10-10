@@ -93,3 +93,17 @@ Uploads an XTF or JSF sonar file and synchronously returns the generated 8-bit n
 Binary PNG image (`image/png`).
 
 **Status Code:** 200 OK
+
+---
+
+### `POST /api/v1/reports/generate`
+Generates a downloadable CSV or GeoJSON file containing the aggregated detection data.
+
+**Request:**
+JSON object containing `format` ("csv" or "geojson") and `detections` (list of `DetectionResult` objects).
+*(See `backend.schemas.ReportRequest`)*
+
+**Response:**
+A binary file stream (`text/csv` or `application/geo+json`) with the `Content-Disposition: attachment` header.
+
+**Status Code:** 200 OK
