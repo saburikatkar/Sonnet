@@ -88,7 +88,10 @@ export default function ResultList({
       <div className="results-list-container">
         {filtered.length === 0 ? (
           <div className="empty-state">
-            <span className="empty-state__icon">🔍</span>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.8">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
             <p className="empty-state__text">No detections match current filter or threshold.</p>
           </div>
         ) : (
@@ -135,10 +138,10 @@ export default function ResultList({
                   {item.geotag && (
                     <div className="detection-card__geo">
                       <span className="geo-coord">
-                        📍 {item.geotag.latitude?.toFixed(4)}&deg;, {item.geotag.longitude?.toFixed(4)}&deg;
+                        POS: {item.geotag.latitude?.toFixed(4)}&deg;, {item.geotag.longitude?.toFixed(4)}&deg;
                       </span>
                       <span className="geo-depth">
-                        🌊 {item.geotag.depth_meters?.toFixed(1)}m depth
+                        DEPTH: {item.geotag.depth_meters?.toFixed(1)}m
                       </span>
                     </div>
                   )}

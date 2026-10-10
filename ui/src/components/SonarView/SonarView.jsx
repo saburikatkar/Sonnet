@@ -34,17 +34,54 @@ export default function SonarView({
   onAddTarget,
   displaySettings,
   imageUrl,
+  onFileSelected,
+  onResetDemo,
+  isProcessing,
+  stageMessage,
+  hasUploadedScan,
 }) {
   const canvasRef = useRef(null)
   const imgRef = useRef(null)
   const rafRef = useRef(null)
   const pingPosRef = useRef(0)
+  const fileInputRef = useRef(null)
   const [zoom, setZoom] = useState(1)
   const [showOverlays, setShowOverlays] = useState(true)
   const [isLiveScrolling, setIsLiveScrolling] = useState(true)
   const [hoveredTargetId, setHoveredTargetId] = useState(null)
+  const [isDragOver, setIsDragOver] = useState(false)
 
   const activeImageSrc = imageUrl || DEFAULT_SONAR_IMAGE
+
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(true)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file && onFileSelected) {
+      onFileSelected(file)
+    }
+  }
+
+  const handleFileInputChange = (e) => {
+    const file = e.target.files?.[0]
+    if (file && onFileSelected) {
+      onFileSelected(file)
+    }
+    e.target.value = ''
+  }
 
   // Load and render authentic side-scan sonar image with ping sweep
   useEffect(() => {
@@ -144,7 +181,12 @@ export default function SonarView({
   ).length
 
   return (
-    <div className="sonar-view">
+    <div
+      className="sonar-view"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {/* 1. Header Toolbar */}
       <div className="sonar-view__titlebar">
         <div className="sonar-view__title-left">
@@ -153,6 +195,40 @@ export default function SonarView({
         </div>
 
         <div className="sonar-view__toolbar">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".png,.jpg,.jpeg,.tiff,.xtf,.jsf"
+            style={{ display: 'none' }}
+            onChange={handleFileInputChange}
+          />
+          <button
+            type="button"
+            className="sonar-tb-btn sonar-tb-btn--upload"
+            onClick={() => fileInputRef.current?.click()}
+            title="Upload your own side-scan sonar image (.png, .jpg, .tiff) or raw log to run YOLO detection"
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ marginRight: 4 }}>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            UPLOAD SCAN
+          </button>
+
+          {hasUploadedScan && (
+            <button
+              type="button"
+              className="sonar-tb-btn"
+              onClick={onResetDemo}
+              title="Reset to sample shipwreck scan"
+            >
+              DEMO SCAN
+            </button>
+          )}
+
+          <span className="sonar-tb-sep" />
+
           <button
             type="button"
             className={`sonar-tb-btn ${isLiveScrolling ? 'sonar-tb-btn--active' : ''}`}
@@ -207,6 +283,39 @@ export default function SonarView({
           </button>
         </div>
       </div>
+
+      {/* Drag & Drop Visual Indicator */}
+      {isDragOver && (
+        <div className="sonar-dropzone-overlay">
+          <div className="sonar-dropzone-modal">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#00c2e0" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <span className="sonar-dropzone-title">DROP SONAR IMAGE OR LOG HERE</span>
+            <span className="sonar-dropzone-sub">YOLOv11s will immediately analyze and detect targets</span>
+          </div>
+        </div>
+      )}
+
+      {/* Real-time Analyzing HUD */}
+      {isProcessing && (
+        <div className="sonar-analyzing-overlay">
+          <div className="sonar-analyzing-card">
+            <div className="sonar-analyzing-spinner" />
+            <span className="sonar-analyzing-title">YOLOv11s ANALYZING SCAN</span>
+            <span className="sonar-analyzing-stage">{stageMessage || 'Running neural inference on side-scan imagery...'}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Zero Targets In User Scan Notification */}
+      {hasUploadedScan && !isProcessing && normalizedTargets.length === 0 && (
+        <div className="sonar-no-targets-badge">
+          0 ANOMALIES DETECTED IN THIS SCAN | LOWER CONFIDENCE IN SIDEBAR TO INSPECT WEAK RETURNS
+        </div>
+      )}
 
       {/* 2. Slant-Range Hydrographic Scale (Top Graticule) */}
       <div className="sonar-ruler">

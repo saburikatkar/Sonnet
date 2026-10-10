@@ -6,9 +6,20 @@ export default function TopBar({
   onTabChange,
   isConnected,
   onOpenUpload,
+  onFileSelected,
   onOpenExport,
   onOpenHistory,
 }) {
+  const fileInputRef = React.useRef(null)
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0]
+    if (file && onFileSelected) {
+      onFileSelected(file)
+    }
+    e.target.value = ''
+  }
+
   return (
     <header className="topbar">
       {/* Brand */}
@@ -77,18 +88,31 @@ export default function TopBar({
         </div>
 
         {/* Primary Action Button: Process File */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".png,.jpg,.jpeg,.tiff,.xtf,.jsf"
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
+        />
         <button
           type="button"
           className="topbar__upload-btn"
-          onClick={onOpenUpload}
-          title="Upload and process side-scan sonar file (.XTF, .JSF, Image)"
+          onClick={() => {
+            if (onFileSelected) {
+              fileInputRef.current?.click()
+            } else {
+              onOpenUpload()
+            }
+          }}
+          title="Upload your own side-scan sonar image (.png, .jpg, .tiff) or raw log (.xtf, .jsf) to run YOLO detection"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="17 8 12 3 7 8" />
             <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
-          RUN DETECTION
+          UPLOAD &amp; DETECT
         </button>
       </div>
     </header>

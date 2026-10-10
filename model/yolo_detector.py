@@ -59,35 +59,56 @@ class YoloDetector:
             if self.model is None:
                 self.model = YOLO(self.weights_path)
 
-            tiles = extract_tiles(img_array, tile_width=640, tile_height=640, overlap_x=64, overlap_y=64)
             raw_candidates = []
 
-            for tile_info in tiles:
-                tile_img = Image.fromarray(tile_info["tile"])
-                results = self.model.predict(source=tile_img, imgsz=640, conf=0.20, verbose=False)
-
-                for result in results:
+            # 2a. Full-frame prediction for large targets and global scene context
+            try:
+                full_results = self.model.predict(source=img, imgsz=640, conf=0.15, verbose=False)
+                for result in full_results:
                     for box in result.boxes:
                         x1, y1, x2, y2 = box.xyxy[0].tolist()
                         conf = float(box.conf[0])
                         cls_id = int(box.cls[0])
                         cls_name = result.names[cls_id]
-
-                        tile_x = tile_info.get("x", tile_info.get("x_offset", 0))
-                        tile_y = tile_info.get("y", tile_info.get("y_offset", 0))
-
-                        gx1 = x1 + tile_x
-                        gy1 = y1 + tile_y
-                        gx2 = x2 + tile_x
-                        gy2 = y2 + tile_y
-
                         raw_candidates.append({
-                            "coords": [gx1, gy1, gx2, gy2],
+                            "coords": [x1, y1, x2, y2],
                             "conf": conf,
                             "cls_name": cls_name,
                         })
+            except Exception as e:
+                pass
 
-            # Non-Maximum Suppression across overlapping tiles
+            # 2b. High-resolution tiled prediction for small benthic targets
+            try:
+                tiles = extract_tiles(img_array, tile_width=640, tile_height=640, overlap_x=64, overlap_y=64)
+                for tile_info in tiles:
+                    tile_img = Image.fromarray(tile_info["tile"])
+                    results = self.model.predict(source=tile_img, imgsz=640, conf=0.15, verbose=False)
+
+                    for result in results:
+                        for box in result.boxes:
+                            x1, y1, x2, y2 = box.xyxy[0].tolist()
+                            conf = float(box.conf[0])
+                            cls_id = int(box.cls[0])
+                            cls_name = result.names[cls_id]
+
+                            tile_x = tile_info.get("x", tile_info.get("x_offset", 0))
+                            tile_y = tile_info.get("y", tile_info.get("y_offset", 0))
+
+                            gx1 = x1 + tile_x
+                            gy1 = y1 + tile_y
+                            gx2 = x2 + tile_x
+                            gy2 = y2 + tile_y
+
+                            raw_candidates.append({
+                                "coords": [gx1, gy1, gx2, gy2],
+                                "conf": conf,
+                                "cls_name": cls_name,
+                            })
+            except Exception as e:
+                pass
+
+            # Non-Maximum Suppression across full-frame and tiled candidates
             raw_candidates.sort(key=lambda c: c["conf"], reverse=True)
             kept_candidates = []
             for cand in raw_candidates:

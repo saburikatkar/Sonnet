@@ -23,7 +23,10 @@ export default function GeospatialMap({
           <h3 className="map-panel__title">Geospatial Plot (WGS84)</h3>
         </div>
         <div className="map-empty">
-          <span className="map-empty__icon">🧭</span>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.8">
+            <circle cx="12" cy="12" r="10" />
+            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+          </svg>
           <p>No navigational geotags available in current detection payload.</p>
         </div>
       </div>

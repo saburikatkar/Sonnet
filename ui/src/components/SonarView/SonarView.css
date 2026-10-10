@@ -358,3 +358,132 @@
   pointer-events: none;
   user-select: none;
 }
+
+/* Upload Action Button */
+.sonar-tb-btn--upload {
+  background: rgba(0, 194, 224, 0.12);
+  border-color: #00c2e0;
+  color: #00e5ff;
+  display: inline-flex;
+  align-items: center;
+}
+
+.sonar-tb-btn--upload:hover {
+  background: rgba(0, 194, 224, 0.25);
+  box-shadow: 0 0 8px rgba(0, 194, 224, 0.4);
+}
+
+/* Drag & Drop Visual Overlay */
+.sonar-dropzone-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 7, 12, 0.88);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed #00c2e0;
+  pointer-events: none;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.sonar-dropzone-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 36px;
+  background: #0d1520;
+  border: 1px solid #00c2e0;
+  border-radius: 6px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 194, 224, 0.25);
+  text-align: center;
+}
+
+.sonar-dropzone-title {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: #f1f5f9;
+}
+
+.sonar-dropzone-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #38bdf8;
+  letter-spacing: 0.3px;
+}
+
+/* Analyzing Inference HUD */
+.sonar-analyzing-overlay {
+  position: absolute;
+  top: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  pointer-events: none;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.sonar-analyzing-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: rgba(13, 21, 32, 0.92);
+  border: 1px solid #00c2e0;
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8), 0 0 12px rgba(0, 194, 224, 0.3);
+}
+
+.sonar-analyzing-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(0, 194, 224, 0.2);
+  border-top-color: #00c2e0;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.sonar-analyzing-title {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: #00c2e0;
+}
+
+.sonar-analyzing-stage {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: #94a3b8;
+  border-left: 1px solid #1e2e40;
+  padding-left: 10px;
+}
+
+/* Zero Targets Notification Badge */
+.sonar-no-targets-badge {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  padding: 6px 14px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid #38bdf8;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: #e2e8f0;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+}
+

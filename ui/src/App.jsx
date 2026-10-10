@@ -86,10 +86,9 @@ export default function App() {
     },
     onNav: (nav) => { setNavData(nav); setDgpsFix(!!nav.dgpsFix) },
     onStage: (stage) => setStageMessage(stage),
-    onError: () => setBackendStatus('offline'),
   })
 
-  // ── Backend health probe ───────────────────────────────────────
+  // ── Backend health probe (fast startup polling) ────────────────
   useEffect(() => {
     let mounted = true
     async function probe() {
@@ -101,7 +100,7 @@ export default function App() {
       }
     }
     probe()
-    const t = setInterval(probe, 15000)
+    const t = setInterval(probe, 3000)
     return () => { mounted = false; clearInterval(t) }
   }, [])
 
@@ -171,29 +170,94 @@ export default function App() {
     setIsHistoryOpen(false)
   }, [])
 
-  const handleFileSelected = (file) => {
-    setSelectedFile(file)
-    const localUrl = URL.createObjectURL(file)
-    setImageUrl(localUrl)
-  }
+  const [hasUploadedScan, setHasUploadedScan] = useState(false)
 
-  // Handle file detection upload pipeline
-  const handleStartDetection = async () => {
-    if (!selectedFile) return
-    setIsProcessing(true)
+  // Crop acoustic region around detected bounding box for high-resolution target inspector
+  const generateDetectionCrops = useCallback(async (rawDetections, imageSrc) => {
+    if (!imageSrc || !rawDetections?.length || typeof document === 'undefined') return rawDetections
+
+    return new Promise((resolve) => {
+      const img = new Image()
+      if (!imageSrc.startsWith('blob:') && !imageSrc.startsWith('data:')) {
+        img.crossOrigin = 'anonymous'
+      }
+      img.onload = () => {
+        const iw = img.naturalWidth || img.width
+        const ih = img.naturalHeight || img.height
+
+        const enriched = rawDetections.map((d) => {
+          try {
+            const bbox = d.bbox || {}
+            const xmin = bbox.x ?? bbox.x_min ?? 0.2
+            const ymin = bbox.y ?? bbox.y_min ?? 0.2
+            const wFrac = bbox.w ?? (bbox.x_max != null ? bbox.x_max - bbox.x_min : 0.05)
+            const hFrac = bbox.h ?? (bbox.y_max != null ? bbox.y_max - bbox.y_min : 0.1)
+
+            const x = Math.max(0, xmin * iw)
+            const y = Math.max(0, ymin * ih)
+            const w = Math.max(10, wFrac * iw)
+            const h = Math.max(10, hFrac * ih)
+
+            const padX = w * 0.25
+            const padY = h * 0.25
+            const sx = Math.max(0, x - padX)
+            const sy = Math.max(0, y - padY)
+            const sw = Math.min(iw - sx, w + padX * 2)
+            const sh = Math.min(ih - sy, h + padY * 2)
+
+            const canvas = document.createElement('canvas')
+            canvas.width = 180
+            canvas.height = 140
+            const ctx = canvas.getContext('2d')
+            ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
+            return {
+              ...d,
+              thumbnailUrl: canvas.toDataURL('image/jpeg', 0.85),
+            }
+          } catch {
+            return d
+          }
+        })
+        resolve(enriched)
+      }
+      img.onerror = () => resolve(rawDetections)
+      img.src = imageSrc
+    })
+  }, [])
+
+  // Process user uploaded file: load image and run YOLO detection pipeline
+  const handleFileSelected = useCallback(async (file) => {
+    if (!file) return
+    setSelectedFile(file)
+    setHasUploadedScan(true)
     setApiError(null)
+
+    let localUrl = null
+    const isImage = /\.(png|jpe?g|webp|bmp|tiff?)$/i.test(file.name)
+    if (isImage) {
+      try {
+        localUrl = URL.createObjectURL(file)
+        setImageUrl(localUrl)
+      } catch (e) {
+        console.warn('Could not create object URL for file:', e)
+      }
+    }
+
+    setIsProcessing(true)
+    setStageMessage('Uploading scan to YOLOv11s inference pipeline...')
     try {
-      const result = await detectFileAsync(selectedFile, {
+      const result = await detectFileAsync(file, {
         onStageChange: (stage) => setStageMessage(stage),
         onJobRegistered: (jobId) => setActiveJobId(jobId),
       })
-      if (result?.detections?.length) {
+
+      if (result?.detections && result.detections.length > 0) {
         const mapped = result.detections.map((d, i) => ({
           id: d.detection_id || `TRK-${String(i + 1).padStart(3, '0')}`,
           type: d.class_name || 'sonar',
-          class: d.class_name ? d.class_name.replace('_', ' ').toUpperCase() : 'Sonar target',
-          modelScore: d.confidence || 0.9,
-          confidence: d.confidence || 0.9,
+          class: d.class_name ? d.class_name.replace(/_/g, ' ').toUpperCase() : 'Sonar Target',
+          modelScore: d.confidence || 0.85,
+          confidence: d.confidence || 0.85,
           roi: d.geotag?.channel || (i % 2 === 0 ? 'port' : 'starboard'),
           side: d.geotag?.channel || (i % 2 === 0 ? 'port' : 'starboard'),
           timeS: new Date().toISOString().slice(14, 19),
@@ -206,18 +270,44 @@ export default function App() {
             h: (d.bbox.y_max != null ? d.bbox.y_max - d.bbox.y_min : d.bbox.h) || 0.15,
           } : { x: 0.3, y: 0.3, w: 0.04, h: 0.15 },
           geotag: d.geotag,
-          thumbnailUrl: imageUrl || DEFAULT_SONAR_IMAGE,
+          thumbnailUrl: localUrl || DEFAULT_SONAR_IMAGE,
         }))
-        setTargets(mapped)
-        if (mapped[0]) setSelectedTargetId(mapped[0].id)
+
+        const enriched = await generateDetectionCrops(mapped, localUrl || DEFAULT_SONAR_IMAGE)
+        setTargets(enriched)
+        if (enriched[0]) setSelectedTargetId(enriched[0].id)
+      } else {
+        // Clear targets if model returns 0 detections on user image
+        setTargets([])
+        setSelectedTargetId(null)
       }
       setIsUploadOpen(false)
     } catch (err) {
-      setApiError(err)
+      const friendlyErr = {
+        code: err.code || 'API_ERROR',
+        message: err.message === 'Failed to fetch'
+          ? 'Cannot connect to backend server at http://127.0.0.1:8000. Ensure the backend is running.'
+          : err.message || 'Detection failed.',
+        details: err.details,
+      }
+      setApiError(friendlyErr)
     } finally {
       setIsProcessing(false)
     }
+  }, [generateDetectionCrops])
+
+  const handleStartDetection = () => {
+    if (selectedFile) handleFileSelected(selectedFile)
   }
+
+  // Reset back to sample demo scan
+  const handleResetDemo = useCallback(() => {
+    setSelectedFile(null)
+    setHasUploadedScan(false)
+    setImageUrl(DEFAULT_SONAR_IMAGE)
+    setTargets(MOCK_TARGETS)
+    if (MOCK_TARGETS[0]) setSelectedTargetId(MOCK_TARGETS[0].id)
+  }, [])
 
   const isConnected = backendStatus === 'online'
 
@@ -230,6 +320,7 @@ export default function App() {
           onTabChange={setActiveTab}
           isConnected={isConnected}
           onOpenUpload={() => setIsUploadOpen(true)}
+          onFileSelected={handleFileSelected}
           onOpenExport={() => setIsExportOpen(true)}
           onOpenHistory={() => setIsHistoryOpen(true)}
         />
@@ -264,6 +355,11 @@ export default function App() {
               onAddTarget={handleAddTarget}
               displaySettings={displaySettings}
               imageUrl={imageUrl}
+              onFileSelected={handleFileSelected}
+              onResetDemo={handleResetDemo}
+              isProcessing={isProcessing}
+              stageMessage={stageMessage}
+              hasUploadedScan={hasUploadedScan}
             />
 
             {/* Right: Anomaly Details & Verification */}
@@ -273,6 +369,7 @@ export default function App() {
               onUpdateTargetStatus={handleUpdateTargetStatus}
               onOpenExport={() => setIsExportOpen(true)}
               onOpenUpload={() => setIsUploadOpen(true)}
+              onFileSelected={handleFileSelected}
             />
           </div>
         )}

@@ -9,7 +9,9 @@ export default function TargetInspector({
   onUpdateTargetClass,
   onOpenExport,
   onOpenUpload,
+  onFileSelected,
 }) {
+  const fileInputRef = React.useRef(null)
   const confirmedCount = targets.filter(
     t => t.status === 'Operator accepted' || t.status === 'Confirmed'
   ).length
@@ -45,17 +47,31 @@ export default function TargetInspector({
           </div>
 
           <div className="ti-quick-actions">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".png,.jpg,.jpeg,.tiff,.xtf,.jsf"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f && onFileSelected) onFileSelected(f)
+                e.target.value = ''
+              }}
+            />
             <button
               type="button"
               className="ti-action-btn ti-action-btn--primary"
-              onClick={onOpenUpload}
+              onClick={() => {
+                if (onFileSelected) fileInputRef.current?.click()
+                else onOpenUpload?.()
+              }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="17 8 12 3 7 8" />
                 <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
-              Process Sonar File (.XTF / .JSF)
+              Upload Sonar Image / Scan
             </button>
             <button
               type="button"

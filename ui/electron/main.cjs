@@ -1,7 +1,7 @@
 const { app, BrowserWindow } = require('electron')
 const path = require('node:path')
-
 const fs = require('node:fs')
+const { startBackend, stopBackend } = require('./backend.cjs')
 
 const isDev = process.argv.includes('--dev')
 const DEV_PORT = process.env.PORT || process.env.VITE_PORT || 5173
@@ -48,13 +48,23 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Automatically start FastAPI Python backend so it's always online
+  startBackend().catch((err) => console.error('[Electron] Backend startup warning:', err))
+
   createWindow()
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
 
+app.on('will-quit', () => {
+  stopBackend()
+})
+
 app.on('window-all-closed', () => {
+  stopBackend()
   if (process.platform !== 'darwin') app.quit()
 })
+
