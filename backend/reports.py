@@ -24,11 +24,21 @@ class ReportGenerator:
             lat = ""
             lon = ""
             uncert = ""
-            if d.geotag and d.geotag.geometry and d.geotag.geometry.centroid_wgs84:
-                lat = f"{d.geotag.geometry.centroid_wgs84.latitude:.6f}"
-                lon = f"{d.geotag.geometry.centroid_wgs84.longitude:.6f}"
+            from backend.schemas import GeotaggedDetection
+            if isinstance(d.geotag, GeotaggedDetection):
+                if d.geotag.geometry and d.geotag.geometry.centroid_wgs84:
+                    lat = f"{d.geotag.geometry.centroid_wgs84.latitude:.6f}"
+                    lon = f"{d.geotag.geometry.centroid_wgs84.longitude:.6f}"
                 if d.geotag.metrics:
                     uncert = f"{d.geotag.metrics.uncertainty_radius_m:.2f}"
+            elif isinstance(d.geotag, dict):
+                centroid = d.geotag.get("geometry", {}).get("centroid_wgs84", {})
+                lat = centroid.get("latitude", "")
+                lon = centroid.get("longitude", "")
+                uncert = d.geotag.get("metrics", {}).get("uncertainty_radius_m", "")
+            elif d.geotag and hasattr(d.geotag, 'latitude'):
+                lat = f"{d.geotag.latitude:.6f}"
+                lon = f"{d.geotag.longitude:.6f}"
             
             row = [
                 d.detection_id,
@@ -53,35 +63,54 @@ class ReportGenerator:
         for d in detections:
             # We can only include geotagged detections in a proper GeoJSON easily
             # Detections without coordinates will be skipped or given null geometry
+            props = {
+                "detection_id": d.detection_id,
+                "class_name": d.class_name,
+                "confidence": d.confidence,
+            }
             feature = {
                 "type": "Feature",
-                "properties": {
-                    "detection_id": d.detection_id,
-                    "class_name": d.class_name,
-                    "confidence": d.confidence,
-                },
+                "properties": props,
                 "geometry": None
             }
             
-            if d.geotag and d.geotag.geometry:
-                # If we have a polygon, use it. Otherwise, fallback to Point.
-                if d.geotag.geometry.coordinates_wgs84 and len(d.geotag.geometry.coordinates_wgs84) > 0:
-                    feature["geometry"] = {
-                        "type": "Polygon",
-                        "coordinates": [d.geotag.geometry.coordinates_wgs84] # GeoJSON wants List[List[List[float]]]
-                    }
-                elif d.geotag.geometry.centroid_wgs84:
-                    feature["geometry"] = {
-                        "type": "Point",
-                        "coordinates": [
-                            d.geotag.geometry.centroid_wgs84.longitude,
-                            d.geotag.geometry.centroid_wgs84.latitude
-                        ]
-                    }
-                
+            from backend.schemas import GeotaggedDetection
+            if isinstance(d.geotag, GeotaggedDetection):
+                if d.geotag.geometry:
+                    if d.geotag.geometry.coordinates_wgs84 and len(d.geotag.geometry.coordinates_wgs84) > 0:
+                        feature["geometry"] = {
+                            "type": "Polygon",
+                            "coordinates": [d.geotag.geometry.coordinates_wgs84]
+                        }
+                    elif d.geotag.geometry.centroid_wgs84:
+                        feature["geometry"] = {
+                            "type": "Point",
+                            "coordinates": [
+                                d.geotag.geometry.centroid_wgs84.longitude,
+                                d.geotag.geometry.centroid_wgs84.latitude
+                            ]
+                        }
                 if d.geotag.metrics:
-                    feature["properties"]["uncertainty_radius_m"] = d.geotag.metrics.uncertainty_radius_m
+                    props["uncertainty_radius_m"] = d.geotag.metrics.uncertainty_radius_m
+            elif isinstance(d.geotag, dict):
+                geom = d.geotag.get("geometry", {})
+                if geom:
+                    coords = geom.get("coordinates_wgs84")
+                    if coords:
+                        feature["geometry"] = {"type": "Polygon", "coordinates": [coords]}
+                    elif "centroid_wgs84" in geom:
+                        c = geom["centroid_wgs84"]
+                        feature["geometry"] = {"type": "Point", "coordinates": [c.get("longitude", 0.0), c.get("latitude", 0.0)]}
+                metrics = d.geotag.get("metrics")
+                if metrics and "uncertainty_radius_m" in metrics:
+                    props["uncertainty_radius_m"] = metrics["uncertainty_radius_m"]
+            elif d.geotag and hasattr(d.geotag, 'latitude'):
+                feature["geometry"] = {
+                    "type": "Point",
+                    "coordinates": [d.geotag.longitude, d.geotag.latitude]
+                }
                     
+            feature["properties"] = props
             features.append(feature)
             
         geojson_dict = {

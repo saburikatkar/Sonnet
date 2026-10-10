@@ -293,22 +293,23 @@ class NavigationInterpolator:
                 p2 = pings[idx2]
                 lat1, lon1 = p1.latitude, p1.longitude
                 lat2, lon2 = p2.latitude, p2.longitude
+                
+                if lat1 is not None and lon1 is not None and lat2 is not None and lon2 is not None:
+                    for step in range(1, gap):
+                        target_idx = idx1 + step
+                        alpha = step / float(gap)
+                        interp_lat = lat1 + alpha * (lat2 - lat1)
+                        interp_lon = lon1 + alpha * (lon2 - lon1)
 
-                for step in range(1, gap):
-                    target_idx = idx1 + step
-                    alpha = step / float(gap)
-                    interp_lat = lat1 + alpha * (lat2 - lat1)
-                    interp_lon = lon1 + alpha * (lon2 - lon1)
-
-                    target_ping = pings[target_idx]
-                    target_ping.latitude = interp_lat
-                    target_ping.longitude = interp_lon
-                    if "latitude" in target_ping.missing_fields:
-                        target_ping.missing_fields.remove("latitude")
-                    if "longitude" in target_ping.missing_fields:
-                        target_ping.missing_fields.remove("longitude")
-                    if "interpolated_nav" not in target_ping.missing_fields:
-                        target_ping.missing_fields.append("interpolated_nav")
+                        target_ping = pings[target_idx]
+                        target_ping.latitude = interp_lat
+                        target_ping.longitude = interp_lon
+                        if "latitude" in target_ping.missing_fields:
+                            target_ping.missing_fields.remove("latitude")
+                        if "longitude" in target_ping.missing_fields:
+                            target_ping.missing_fields.remove("longitude")
+                        if "interpolated_nav" not in target_ping.missing_fields:
+                            target_ping.missing_fields.append("interpolated_nav")
 
         # Smooth / fill missing altitude using median of valid pings
         valid_alts = [p.altitude for p in pings if p.altitude is not None and p.altitude > 0.0]
@@ -334,7 +335,9 @@ class NavigationInterpolator:
                 ref1 = prev_p if (prev_p and prev_p.latitude is not None) else p
                 ref2 = next_p if (next_p and next_p.latitude is not None) else p
 
-                if ref1.latitude is not None and ref2.latitude is not None and (ref1 != ref2):
+                if (ref1.latitude is not None and ref2.latitude is not None and 
+                    ref1.longitude is not None and ref2.longitude is not None and 
+                    (ref1 != ref2)):
                     d_lat = ref2.latitude - ref1.latitude
                     d_lon = (ref2.longitude - ref1.longitude) * math.cos(math.radians(ref1.latitude))
                     cog = (math.degrees(math.atan2(d_lon, d_lat))) % 360.0
@@ -462,8 +465,14 @@ class GeotaggingEngine:
             quality_flag = "COG_HEADING_APPROX"
 
         # Transform start and end pings to UTM
-        e1, n1, zone1, north1 = CoordinateTransformer.latlon_to_utm(ping_start.latitude, ping_start.longitude)
-        e2, n2, _, _ = CoordinateTransformer.latlon_to_utm(ping_end.latitude, ping_end.longitude)
+        lat1, lon1 = ping_start.latitude, ping_start.longitude
+        lat2, lon2 = ping_end.latitude, ping_end.longitude
+        
+        if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
+            raise ValueError("Cannot geotag detection: missing navigation data.")
+            
+        e1, n1, zone1, north1 = CoordinateTransformer.latlon_to_utm(lat1, lon1)
+        e2, n2, _, _ = CoordinateTransformer.latlon_to_utm(lat2, lon2)
 
         # Apply towfish layback if configured
         h1 = ping_start.heading if ping_start.heading is not None else 0.0

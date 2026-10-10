@@ -2,8 +2,8 @@ import os
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import declarative_base, sessionmaker, Mapped, mapped_column
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import String, DateTime, JSON
 
 DATABASE_URL = "sqlite+aiosqlite:///./synora.db"
@@ -13,11 +13,12 @@ if os.getenv("TESTING") == "1":
     DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 engine = create_async_engine(DATABASE_URL, echo=False)
-AsyncSessionLocal = sessionmaker(
+AsyncSessionLocal = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )
 
-Base = declarative_base()
+class Base(DeclarativeBase):
+    pass
 
 class DBJob(Base):
     __tablename__ = "jobs"
@@ -33,7 +34,7 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """
     FastAPI Dependency that provides an asynchronous database session.

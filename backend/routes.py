@@ -113,11 +113,12 @@ async def get_job_status(job_id: str):
             }
         )
 
+    from backend.schemas import DetectionResult, ErrorDetail
     return JobStatusResponse(
         job_id=job.job_id,
         status=job.status,
-        detections=job.detections,
-        error=job.error
+        detections=[DetectionResult(**d) for d in job.detections] if job.detections else [],
+        error=ErrorDetail(**job.error) if job.error else None
     )
 
 from backend.schemas import FuseRequest, FuseResponse
@@ -173,8 +174,10 @@ async def job_status_websocket(websocket: WebSocket, job_id: str):
 
 from backend.schemas import PaginatedHistoryResponse, JobHistorySummary
 
+from typing import Optional
+
 @router.get("/jobs", tags=["Jobs"], response_model=PaginatedHistoryResponse)
-async def list_historical_jobs(skip: int = 0, limit: int = 50, status: str = None):
+async def list_historical_jobs(skip: int = 0, limit: int = 50, status: Optional[str] = None):
     """
     Fetch a paginated list of historical detection jobs.
     """
