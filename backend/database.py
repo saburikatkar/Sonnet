@@ -33,6 +33,11 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-async def get_db_session() -> AsyncSession:
+from typing import AsyncGenerator
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    """
+    FastAPI Dependency that provides an asynchronous database session.
+    Yields the session and ensures it is safely closed after the request.
+    """
     async with AsyncSessionLocal() as session:
         yield session
