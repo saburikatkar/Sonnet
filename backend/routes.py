@@ -34,3 +34,21 @@ async def detect_anomalies(file: UploadFile = File(...)):
         detections=[]
     )
 
+
+from backend.schemas import FuseRequest, FuseResponse
+from backend.fusion import GeospatialFuser
+
+@router.post("/fuse", response_model=FuseResponse)
+def fuse_detections_endpoint(request: FuseRequest):
+    """
+    Cluster overlapping or duplicate detections from multiple sonar passes 
+    into unified geographical targets.
+    """
+    try:
+        fused = GeospatialFuser.cluster_detections(
+            request.detections, 
+            threshold_m=request.distance_threshold_m
+        )
+        return FuseResponse(fused_targets=fused)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
