@@ -2,8 +2,8 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: var(--c-sonar-void);
-  border-right: 1px solid var(--c-border);
+  background: #050302;
+  border-right: 1px solid #1a2736;
   min-width: 0;
   overflow: hidden;
   position: relative;
@@ -14,108 +14,83 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--sp-2) var(--sp-4);
-  background: rgba(0,0,0,0.55);
-  border-bottom: 1px solid var(--c-border);
+  padding: 0 12px;
+  height: 32px;
+  background: #090e15;
+  border-bottom: 1px solid #182635;
   flex-shrink: 0;
-  gap: var(--sp-4);
+  gap: 12px;
 }
 
 .sonar-view__title-left {
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
+  gap: 8px;
 }
 
 .sonar-view__indicator {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--c-cyan);
-  box-shadow: 0 0 6px var(--c-cyan);
+  background: #38bdf8;
+  box-shadow: 0 0 6px #38bdf8;
   flex-shrink: 0;
-  animation: pulse-dot 2s ease-in-out infinite;
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.4; }
 }
 
 .sonar-view__title {
   font-family: var(--font-ui);
-  font-size: var(--fs-11);
-  font-weight: var(--fw-semi);
-  color: var(--c-text-bright);
+  font-size: 11px;
+  font-weight: 700;
+  color: #f1f5f9;
   letter-spacing: 0.4px;
-}
-
-.sonar-view__subtitle {
-  font-family: var(--font-ui);
-  font-size: var(--fs-10);
-  color: var(--c-text-dim);
-  letter-spacing: 0.3px;
-}
-
-/* Confirmed badge */
-.sonar-view__confirmed-badge {
-  background: var(--c-confirmed-bg);
-  border: 1px solid rgba(34,197,94,0.4);
-  color: var(--c-confirmed);
-  font-family: var(--font-ui);
-  font-size: var(--fs-10);
-  font-weight: var(--fw-bold);
-  letter-spacing: 0.6px;
-  padding: 2px var(--sp-3);
-  border-radius: var(--r-sm);
 }
 
 /* Toolbar */
 .sonar-view__toolbar {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
-  padding: 0 var(--sp-4);
-  height: var(--sonartools-h, 32px);
-  background: rgba(0,0,0,0.4);
-  border-bottom: 1px solid var(--c-border);
-  flex-shrink: 0;
+  gap: 6px;
 }
 
-.sonar-tb-btn {
-  background: var(--c-panel-2);
-  border: 1px solid var(--c-border);
-  border-radius: var(--r-sm);
-  color: var(--c-text-dim);
-  font-size: var(--fs-11);
-  padding: 2px var(--sp-3);
+.sonar-tb-icon-btn {
+  background: #111a24;
+  border: 1px solid #1e2e40;
+  border-radius: 3px;
+  color: #728a9e;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  transition: all 0.15s;
 }
-.sonar-tb-btn:hover { color: var(--c-text); border-color: var(--c-border-hi); }
+.sonar-tb-icon-btn:hover {
+  color: #ffffff;
+  border-color: #38bdf8;
+}
 
 .sonar-tb-sep {
   width: 1px;
-  height: 16px;
-  background: var(--c-border);
-  margin: 0 var(--sp-2);
+  height: 14px;
+  background: #1e2e40;
+  margin: 0 2px;
 }
 
 .sonar-tb-label {
   font-family: var(--font-ui);
-  font-size: var(--fs-10);
-  color: var(--c-text-dim);
-  margin-left: var(--sp-2);
+  font-size: 10px;
+  color: #728a9e;
 }
 
 .sonar-tb-select {
-  background: var(--c-panel-2);
-  border: 1px solid var(--c-border);
-  border-radius: var(--r-sm);
-  color: var(--c-text);
+  background: #111a24;
+  border: 1px solid #1e2e40;
+  border-radius: 3px;
+  color: #d1e2f0;
   font-family: var(--font-ui);
-  font-size: var(--fs-10);
-  padding: 2px var(--sp-2);
+  font-size: 10px;
+  padding: 1px 4px;
   cursor: pointer;
 }
 
@@ -126,6 +101,7 @@
   overflow: hidden;
   cursor: crosshair;
   transform-origin: top left;
+  background: #040201;
 }
 
 .sonar-view__canvas {
@@ -135,7 +111,39 @@
   object-fit: fill;
 }
 
-/* SVG detection overlay */
+/* Overlays */
+.sonar-watermark {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  user-select: none;
+}
+
+.sonar-confirmed-badge {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: rgba(34, 197, 94, 0.18);
+  border: 1px solid #22c55e;
+  color: #22c55e;
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.25);
+  pointer-events: none;
+  user-select: none;
+}
+
 .sonar-view__overlay {
   position: absolute;
   inset: 0;
@@ -147,68 +155,43 @@
 .sonar-det-group {
   transition: opacity 0.15s;
 }
-.sonar-det-group:hover { opacity: 0.85; }
+.sonar-det-group:hover {
+  opacity: 0.9;
+}
 
-/* Target label */
-.sonar-target-label {
+.sonar-target-tag {
   position: absolute;
-  background: var(--c-target-box);
-  color: var(--c-target-label);
+  background: #f5c400;
+  color: #000000;
   font-family: var(--font-ui);
   font-size: 9px;
-  font-weight: var(--fw-bold);
-  letter-spacing: 0.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
   padding: 1px 4px;
   cursor: pointer;
   user-select: none;
-  border: 1px solid #c8a000;
   white-space: nowrap;
   transform: translateY(-100%);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  border: 1px solid #eab308;
 }
 
-.sonar-target-label--selected {
+.sonar-target-tag--selected {
   background: #22c55e;
-  color: #000;
+  color: #000000;
   border-color: #16a34a;
 }
 
-/* Click marker */
-.sonar-click-marker {
+.sonar-towfish-alt {
   position: absolute;
-  transform: translate(-50%, -50%);
+  bottom: 8px;
+  left: 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: #38bdf8;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   pointer-events: none;
-}
-.sonar-click-marker__cross {
-  font-size: 16px;
-  color: var(--c-text-bright);
-  line-height: 1;
-  display: block;
-  text-align: center;
-}
-.sonar-click-marker__label {
-  background: rgba(0,0,0,0.7);
-  border: 1px solid var(--c-text-dim);
-  color: var(--c-text-bright);
-  font-family: var(--font-ui);
-  font-size: var(--fs-10);
-  padding: 1px 4px;
-  white-space: nowrap;
-  display: block;
-  margin-top: 2px;
-}
-
-/* Axis labels */
-.sonar-view__axis {
-  display: flex;
-  justify-content: space-between;
-  padding: 2px var(--sp-6);
-  background: rgba(0,0,0,0.4);
-  border-top: 1px solid var(--c-border);
-  flex-shrink: 0;
-}
-.sonar-axis-label {
-  font-family: var(--font-ui);
-  font-size: var(--fs-10);
-  color: var(--c-text-muted);
-  letter-spacing: 0.4px;
+  user-select: none;
 }

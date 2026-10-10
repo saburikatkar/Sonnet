@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import SidebarSection from './SidebarSection'
 import DisplayControls from './DisplayControls'
 import GainControls from './GainControls'
@@ -21,10 +21,10 @@ export default function Sidebar({
           <SidebarSection label="DISPLAY" defaultOpen>
             <DisplayControls settings={displaySettings} onChange={onDisplayChange} />
           </SidebarSection>
-          <SidebarSection label="GAIN & PROCESSING">
+          <SidebarSection label="GAIN & PROCESSING" defaultOpen>
             <GainControls settings={gainSettings} onChange={onGainChange} />
           </SidebarSection>
-          <SidebarSection label="NAVIGATION" defaultOpen>
+          <SidebarSection label="NAVIGATION" defaultOpen badge={dgpsFix ? 'DGPS FIX' : 'NO FIX'}>
             <NavigationPanel navData={navData} dgpsFix={dgpsFix} />
           </SidebarSection>
         </>

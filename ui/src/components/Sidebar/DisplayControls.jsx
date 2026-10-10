@@ -11,7 +11,7 @@ export default function DisplayControls({ settings, onChange }) {
           <div className="sb-colormap-swatch" aria-hidden="true" />
           <select
             className="sb-select"
-            value={settings.colorMap}
+            value={settings.colorMap || 'MytisBronze'}
             onChange={e => onChange({ colorMap: e.target.value })}
           >
             {COLOR_MAPS.map(c => <option key={c} value={c}>{c}</option>)}
@@ -23,31 +23,49 @@ export default function DisplayControls({ settings, onChange }) {
       <div className="sb-row sb-row--col">
         <div className="sb-row sb-row--between">
           <label className="sb-label">Brightness</label>
-          <span className="sb-value">{settings.brightness}</span>
+          <span className="sb-value">{settings.brightness ?? 0}</span>
         </div>
-        <input type="range" className="sb-slider" min="0" max="100"
-          value={settings.brightness} onChange={e => onChange({ brightness: +e.target.value })} />
+        <input
+          type="range"
+          className="sb-slider"
+          min="-100"
+          max="100"
+          value={settings.brightness ?? 0}
+          onChange={e => onChange({ brightness: +e.target.value })}
+        />
       </div>
 
       {/* Contrast */}
       <div className="sb-row sb-row--col">
         <div className="sb-row sb-row--between">
           <label className="sb-label">Contrast</label>
-          <span className="sb-value">{settings.contrast}</span>
+          <span className="sb-value">{settings.contrast ?? 0}</span>
         </div>
-        <input type="range" className="sb-slider" min="0" max="100"
-          value={settings.contrast} onChange={e => onChange({ contrast: +e.target.value })} />
+        <input
+          type="range"
+          className="sb-slider"
+          min="-100"
+          max="100"
+          value={settings.contrast ?? 0}
+          onChange={e => onChange({ contrast: +e.target.value })}
+        />
       </div>
 
       {/* Gamma */}
       <div className="sb-row sb-row--col">
         <div className="sb-row sb-row--between">
           <label className="sb-label">Gamma</label>
-          <span className="sb-value">{settings.gamma.toFixed(1)}</span>
+          <span className="sb-value">{(settings.gamma ?? 1.0).toFixed(1)}</span>
         </div>
-        <input type="range" className="sb-slider" min="1" max="30" step="1"
-          value={Math.round(settings.gamma * 10)}
-          onChange={e => onChange({ gamma: +e.target.value / 10 })} />
+        <input
+          type="range"
+          className="sb-slider"
+          min="1"
+          max="30"
+          step="1"
+          value={Math.round((settings.gamma ?? 1.0) * 10)}
+          onChange={e => onChange({ gamma: +e.target.value / 10 })}
+        />
       </div>
 
       {/* Checkboxes */}
@@ -57,8 +75,11 @@ export default function DisplayControls({ settings, onChange }) {
         ['autoGain',             'Auto Gain (TVG)'],
       ].map(([key, label]) => (
         <label key={key} className="sb-checkbox">
-          <input type="checkbox" checked={settings[key]}
-            onChange={e => onChange({ [key]: e.target.checked })} />
+          <input
+            type="checkbox"
+            checked={settings[key] ?? true}
+            onChange={e => onChange({ [key]: e.target.checked })}
+          />
           <span className="sb-checkbox__label">{label}</span>
         </label>
       ))}

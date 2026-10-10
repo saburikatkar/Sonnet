@@ -28,7 +28,7 @@ body {
 /* ── TARANG APP SHELL ── */
 .tarang-shell {
   display: grid;
-  grid-template-rows: var(--topbar-h) var(--infostrip-h) 1fr var(--targetlog-h);
+  grid-template-rows: var(--topbar-h) 1fr var(--targetlog-h);
   grid-template-columns: 1fr;
   height: 100vh;
   overflow: hidden;

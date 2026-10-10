@@ -91,10 +91,10 @@
   /* ── Layout dimensions ── */
   --topbar-h:      40px;
   --infostrip-h:   26px;
-  --sidebar-w:     192px;
-  --sidebar-w-col: 48px;   /* collapsed */
-  --minimap-w:     244px;
-  --rightpanel-w:  212px;
-  --targetlog-h:   220px;
+  --sidebar-w:     210px;
+  --sidebar-w-col: 36px;   /* collapsed */
+  --minimap-w:     260px;
+  --rightpanel-w:  210px;
+  --targetlog-h:   180px;
   --targetlog-h-col: 32px; /* collapsed */
 }

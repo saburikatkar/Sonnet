@@ -4,10 +4,21 @@ from backend.routes import router as api_router, job_status_websocket
 from backend.api_upload import router as sonar_upload_router
 from backend.api_reports import router as reports_router
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(
     title="Team Synora Backend API",
     description="Backend API for AI-powered marine debris and anomaly detection using side-scan sonar imagery.",
     version="1.0.0"
+)
+
+# Enable CORS for frontend Vite / Electron development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Standard error envelope handler conforming to docs/api-contract.md
