@@ -56,6 +56,34 @@ def test_get_job_status_lifecycle():
     assert job_data["job_id"] == job_id
     assert job_data["status"] in ["processing", "completed"]
 
+def test_job_websocket_status_streaming():
+    file_bytes = b"sonar-log-data"
+    post_res = client.post(
+        "/api/v1/detect",
+        files={"file": ("survey_ws.png", io.BytesIO(file_bytes), "image/png")}
+    )
+    assert post_res.status_code == 200
+    job_id = post_res.json()["job_id"]
+
+    with client.websocket_connect(f"/api/v1/jobs/{job_id}/ws") as websocket:
+        data = websocket.receive_json()
+        assert data["job_id"] == job_id
+        assert data["status"] in ["processing", "completed"]
+
+def test_job_websocket_root_alias():
+    file_bytes = b"sonar-log-data"
+    post_res = client.post(
+        "/api/v1/detect",
+        files={"file": ("survey_ws_root.png", io.BytesIO(file_bytes), "image/png")}
+    )
+    assert post_res.status_code == 200
+    job_id = post_res.json()["job_id"]
+
+    with client.websocket_connect(f"/jobs/{job_id}/ws") as websocket:
+        data = websocket.receive_json()
+        assert data["job_id"] == job_id
+        assert data["status"] in ["processing", "completed"]
+
 @pytest.mark.anyio
 async def test_mock_engine_detection_constraints():
     engine = MockYoloEngine(min_delay=0.0, max_delay=0.01)

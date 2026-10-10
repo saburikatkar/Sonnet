@@ -1,7 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { CLASS_TAXONOMY, CLASS_META, ALLOWED_EXTENSIONS } from '../src/constants.js'
-import { API_BASE_URL, initiateDetection, getJobStatus, generateReportApi } from '../src/api/client.js'
+import {
+  API_BASE_URL,
+  initiateDetection,
+  getJobStatus,
+  generateReportApi,
+  getWebSocketUrl,
+  detectFileAsync
+} from '../src/api/client.js'
 
 test('UI Contract Verification: Taxonomy aligns with B2 docs/api-contract.md', () => {
   const expectedTaxonomy = ['plastic', 'metal', 'fishing_net', 'tire', 'shipwreck', 'unknown']
@@ -53,10 +60,16 @@ test('UI Schema Validation: Standard error envelope shape', () => {
   assert.equal(typeof sampleError.error.details, 'object')
 })
 
-test('UI Async Workflow: Client exports initiateDetection, getJobStatus, generateReportApi', () => {
+test('UI Async Workflow: Client exports initiateDetection, getJobStatus, generateReportApi, detectFileAsync', () => {
   assert.equal(typeof initiateDetection, 'function')
   assert.equal(typeof getJobStatus, 'function')
   assert.equal(typeof generateReportApi, 'function')
+  assert.equal(typeof detectFileAsync, 'function')
+})
+
+test('UI WebSocket Protocol: getWebSocketUrl formats native ws:// endpoint', () => {
+  const wsUrl = getWebSocketUrl('job_test_123')
+  assert.equal(wsUrl, 'ws://127.0.0.1:8000/api/v1/jobs/job_test_123/ws')
 })
 
 test('UI Report Generator Request: Validates format literal and detection array structure', () => {

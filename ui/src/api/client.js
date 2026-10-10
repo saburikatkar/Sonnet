@@ -1,9 +1,11 @@
 /**
- * Team Synora - Backend API Client
+ * Team Synora - Backend API Client (Phase 4 WebSocket Streaming)
  * Interfaces with FastAPI endpoints conforming to docs/api-contract.md
  */
 
-export const API_BASE_URL = 'http://127.0.0.1:8000'
+import { API_BASE_URL } from '../config.js'
+
+export { API_BASE_URL }
 
 /**
  * Standard error shape parser
@@ -27,6 +29,16 @@ async function parseError(response) {
   err.status = response.status
   err.details = details
   return err
+}
+
+/**
+ * Derives native WebSocket URL from API_BASE_URL
+ * @param {string} jobId
+ * @returns {string}
+ */
+export function getWebSocketUrl(jobId) {
+  const wsBase = API_BASE_URL.replace(/^http/, 'ws')
+  return `${wsBase}/api/v1/jobs/${jobId}/ws`
 }
 
 /**
@@ -69,7 +81,7 @@ export async function initiateDetection(file, { signal } = {}) {
 }
 
 /**
- * 3. Poll Job Status Endpoint: GET /api/v1/jobs/{job_id}
+ * 3. Poll Job Status Endpoint (Fallback & Inspection): GET /api/v1/jobs/{job_id}
  * @param {string} jobId
  * @param {AbortSignal} [signal]
  * @returns {Promise<{job_id: string, status: string, detections: Array, error?: any}>}
@@ -83,74 +95,147 @@ export async function getJobStatus(jobId, signal) {
 }
 
 /**
- * High-level detection with managed async polling loop
+ * 4. Real-Time Detection with Native WebSocket Push Streaming (Phase 4)
+ * Completely eliminates HTTP polling; receives live status events pushed by backend ws_manager.
+ * Cleanly closes the WebSocket upon job completion, failure, or user AbortSignal.
+ *
  * @param {File} file
  * @param {Object} [options]
  * @param {AbortSignal} [options.signal]
- * @param {(stage: string, data?: any) => void} [options.onStageChange]
- * @param {number} [options.pollIntervalMs]
- * @param {number} [options.maxAttempts]
+ * @param {(stage: string, meta?: any) => void} [options.onStageChange]
+ * @returns {Promise<{job_id: string, status: string, detections: Array}>}
  */
-export async function detectFileAsync(
-  file,
-  {
-    signal,
-    onStageChange,
-    pollIntervalMs = 1500,
-    maxAttempts = 30,
-  } = {}
-) {
+export async function detectFileAsync(file, { signal, onStageChange } = {}) {
   onStageChange?.('Uploading sonar payload and registering async job...')
 
   const initResult = await initiateDetection(file, { signal })
   const jobId = initResult.job_id
 
   if (!jobId) {
-    // If backend returns immediate detections
+    // If backend returns immediate synchronous detections
     return initResult
   }
 
-  onStageChange?.(`Job registered (${jobId}). Initializing inference...`, { jobId })
+  onStageChange?.(`Job registered (${jobId}). Opening real-time WebSocket connection...`, { jobId })
 
-  // Polling loop against GET /api/v1/jobs/{job_id}
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    onStageChange?.(`Inference running on server... (poll attempt ${attempt}/${maxAttempts})`, { jobId, attempt })
+  const wsUrl = getWebSocketUrl(jobId)
 
-    const statusData = await getJobStatus(jobId, signal)
+  return new Promise((resolve, reject) => {
+    let ws = null
+    let isFinished = false
 
-    if (statusData.status === 'completed') {
-      onStageChange?.('Inference completed successfully. Rendering detections...')
-      return statusData
-    }
-
-    if (statusData.status === 'failed') {
-      const errMsg = statusData.error?.message || 'Detection job failed on backend.'
-      const err = new Error(errMsg)
-      err.code = statusData.error?.code || 'JOB_FAILED'
-      err.details = statusData.error?.details || {}
-      throw err
-    }
-
-    // Abortable wait for next poll interval
-    await new Promise((resolve, reject) => {
-      if (signal?.aborted) return reject(new DOMException('Operation aborted by user', 'AbortError'))
-      
-      const timeoutId = setTimeout(resolve, pollIntervalMs)
-      
+    const cleanup = () => {
       if (signal) {
-        signal.addEventListener('abort', () => {
-          clearTimeout(timeoutId)
-          reject(new DOMException('Operation aborted by user', 'AbortError'))
-        }, { once: true })
+        signal.removeEventListener('abort', onAbort)
       }
-    })
-  }
+      if (ws) {
+        try {
+          if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+            ws.close(1000, 'Job finished or aborted')
+          }
+        } catch {
+          // Ignore close errors
+        }
+        ws = null
+      }
+    }
 
-  throw new Error(`Detection job timed out after ${maxAttempts} polling attempts.`)
+    const onAbort = () => {
+      isFinished = true
+      cleanup()
+      reject(new DOMException('Operation aborted by user', 'AbortError'))
+    }
+
+    if (signal?.aborted) {
+      onAbort()
+      return
+    }
+
+    if (signal) {
+      signal.addEventListener('abort', onAbort)
+    }
+
+    try {
+      ws = new WebSocket(wsUrl)
+    } catch (err) {
+      cleanup()
+      reject(err)
+      return
+    }
+
+    ws.onopen = () => {
+      if (isFinished) return
+      onStageChange?.('WebSocket stream connected. Awaiting real-time inference...', { jobId })
+    }
+
+    ws.onmessage = (event) => {
+      if (isFinished) return
+      try {
+        const data = JSON.parse(event.data)
+
+        if (data.status === 'processing') {
+          onStageChange?.(data.stage || 'YOLO neural network analyzing side-scan sonar rungs...', {
+            jobId,
+            status: 'processing',
+          })
+          return
+        }
+
+        if (data.status === 'completed') {
+          isFinished = true
+          onStageChange?.('Inference completed! Rendering detections and geotags...', {
+            jobId,
+            status: 'completed',
+          })
+          cleanup()
+          resolve(data)
+          return
+        }
+
+        if (data.status === 'failed') {
+          isFinished = true
+          cleanup()
+          const err = new Error(data.error?.message || 'Detection job failed on backend.')
+          err.code = data.error?.code || 'JOB_FAILED'
+          err.details = data.error?.details || {}
+          reject(err)
+          return
+        }
+      } catch (parseErr) {
+        // Ignore non-JSON or ping frames
+      }
+    }
+
+    ws.onerror = (event) => {
+      if (isFinished) return
+      console.warn('WebSocket encountered error, preparing fallback check:', event)
+    }
+
+    ws.onclose = (event) => {
+      if (isFinished) return
+      if (signal?.aborted) return
+
+      isFinished = true
+      cleanup()
+
+      // If socket closed before completion, attempt fallback REST status check
+      getJobStatus(jobId, signal)
+        .then((fallbackData) => {
+          if (fallbackData.status === 'completed') {
+            resolve(fallbackData)
+          } else {
+            reject(new Error(`WebSocket connection closed (code: ${event.code}).`))
+          }
+        })
+        .catch(() => {
+          reject(new Error(`WebSocket connection closed (code: ${event.code}).`))
+        })
+    }
+  })
 }
 
 /**
- * 4. Report Generation Endpoint: POST /api/v1/reports/generate (B1)
+ * 5. Report Generation Endpoint: POST /api/v1/reports/generate (B1)
  * @param {'csv' | 'geojson'} format
  * @param {Array} detections
  * @param {AbortSignal} [signal]
@@ -175,7 +260,7 @@ export async function generateReportApi(format, detections, signal) {
 }
 
 /**
- * 5. Sonar Log Upload: POST /api/v1/sonar/upload
+ * 6. Sonar Log Upload: POST /api/v1/sonar/upload
  * @param {File} file
  * @param {AbortSignal} [signal]
  */
@@ -196,7 +281,7 @@ export async function uploadSonarLog(file, signal) {
 }
 
 /**
- * 6. Geotagging Endpoint: POST /api/v1/geotag
+ * 7. Geotagging Endpoint: POST /api/v1/geotag
  * @param {Object} detection
  * @param {Array} pingMetadata
  * @param {AbortSignal} [signal]

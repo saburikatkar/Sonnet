@@ -1,6 +1,6 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, WebSocket
 from fastapi.responses import JSONResponse
-from backend.routes import router as api_router
+from backend.routes import router as api_router, job_status_websocket
 from backend.api_upload import router as sonar_upload_router
 from backend.api_reports import router as reports_router
 
@@ -23,7 +23,12 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         content={"error": {"code": f"HTTP_{exc.status_code}", "message": str(exc.detail), "details": {}}}
     )
 
-# Include the integrated B2 routes (geotagging + detect + jobs)
+# Direct root WebSocket alias for ws://.../jobs/{job_id}/ws in addition to /api/v1/jobs/{job_id}/ws
+@app.websocket("/jobs/{job_id}/ws")
+async def root_job_status_websocket(websocket: WebSocket, job_id: str):
+    await job_status_websocket(websocket, job_id)
+
+# Include the integrated B2 routes (geotagging + detect + jobs + ws)
 app.include_router(api_router)
 # Include B1's sonar upload functionality
 app.include_router(sonar_upload_router)
