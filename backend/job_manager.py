@@ -57,6 +57,18 @@ class AsyncJobManager:
                 job.detections = detections
             if error is not None:
                 job.error = error
+            
+            # Broadcast the updated state to any subscribed websockets
+            from backend.ws_manager import ws_manager
+            asyncio.create_task(ws_manager.broadcast_job_update(
+                job_id,
+                {
+                    "job_id": job.job_id,
+                    "status": job.status,
+                    "detections": job.detections,
+                    "error": job.error
+                }
+            ))
             return True
 
     async def clear_all(self) -> None:

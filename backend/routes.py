@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, File, UploadFile, BackgroundTasks
+from fastapi import APIRouter, HTTPException, File, UploadFile, BackgroundTasks, WebSocket, WebSocketDisconnect
 from backend.schemas import (
     GeotagRequest,
     GeotaggedDetection,
@@ -127,3 +127,35 @@ def fuse_detections_endpoint(request: FuseRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+from backend.ws_manager import ws_manager
+
+@router.websocket("/jobs/{job_id}/ws")
+async def job_status_websocket(websocket: WebSocket, job_id: str):
+    """
+    Real-time WebSocket endpoint that streams job status updates to the UI, 
+    eliminating the need for the frontend to aggressively poll the REST API.
+    """
+    # Verify the job exists before accepting
+    job = await job_manager.get_job(job_id)
+    if not job:
+        await websocket.close(code=4004, reason="Job not found")
+        return
+        
+    await ws_manager.connect(websocket, job_id)
+    
+    try:
+        # Immediately send the current status upon connection
+        await websocket.send_json({
+            "job_id": job.job_id,
+            "status": job.status,
+            "detections": job.detections,
+            "error": job.error
+        })
+        
+        # Keep the connection open. The server will actively push updates via ws_manager.
+        while True:
+            # We just wait for the client to disconnect or we can accept simple ping/pongs
+            data = await websocket.receive_text()
+    except WebSocketDisconnect:
+        ws_manager.disconnect(websocket, job_id)
