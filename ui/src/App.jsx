@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import Header from './components/Header'
 import UploadDropzone from './components/UploadDropzone'
 import ProcessingStatus from './components/ProcessingStatus'
@@ -7,7 +7,7 @@ import DetectionViewer from './components/DetectionViewer'
 import ResultList from './components/ResultList'
 import GeospatialMap from './components/GeospatialMap'
 import ReportModal from './components/ReportModal'
-import { detectFile } from './api/client'
+import { initiateDetection, getJobStatus } from './api/client'
 
 // Sample fallback dataset matching B2 approved contract for instant demonstration
 const SAMPLE_DETECTIONS = [
@@ -90,6 +90,15 @@ export default function App() {
   const [isExportOpen, setIsExportOpen] = useState(false)
   const [activeViewTab, setActiveViewTab] = useState('viewer') // 'viewer' | 'map'
   const abortControllerRef = useRef(null)
+  const pollingTimerRef = useRef(null)
+
+  // Cleanup polling timer and preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingTimerRef.current) clearInterval(pollingTimerRef.current)
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+    }
+  }, [previewUrl])
 
   // Handle file selection and preview creation
   function handleFileSelected(file) {
@@ -104,42 +113,113 @@ export default function App() {
     }
   }
 
-  // Cancel in-flight request
+  // Cancel in-flight request & stop polling loop
   function handleCancelOperation() {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
+    if (pollingTimerRef.current) {
+      clearInterval(pollingTimerRef.current)
+      pollingTimerRef.current = null
+    }
     setIsProcessing(false)
-    setStageMessage('Operation cancelled by user.')
+    setStageMessage('Detection cancelled by user.')
   }
 
-  // Run anomaly detection pipeline against B2 backend
+  // Execute Async Detection & Polling Loop against B2 Backend
   async function handleStartDetection() {
     if (!selectedFile) return
 
     setIsProcessing(true)
     setApiError(null)
+    setStageMessage('Uploading sonar payload and registering async job (POST /api/v1/detect)...')
     abortControllerRef.current = new AbortController()
+    const signal = abortControllerRef.current.signal
 
     try {
-      const result = await detectFile(selectedFile, {
-        signal: abortControllerRef.current.signal,
-        onStageChange: (stage) => setStageMessage(stage),
+      // Step 1: Hit POST /api/v1/detect to get job_id
+      const initResult = await initiateDetection(selectedFile, { signal })
+      const jobId = initResult.job_id
+
+      if (!jobId) {
+        // Direct detection response fallback
+        if (initResult.detections && initResult.detections.length > 0) {
+          setDetections(initResult.detections)
+          setSelectedDetectionId(initResult.detections[0].detection_id)
+        }
+        setIsProcessing(false)
+        return
+      }
+
+      setActiveJobId(jobId)
+      setStageMessage(`Job registered (${jobId}). Polling server for YOLO inference (GET /api/v1/jobs/${jobId})...`)
+
+      // Step 2: Managed Polling Loop (interval: 1500ms)
+      let attempts = 0
+      const maxAttempts = 35
+
+      await new Promise((resolve, reject) => {
+        pollingTimerRef.current = setInterval(async () => {
+          if (signal.aborted) {
+            clearInterval(pollingTimerRef.current)
+            pollingTimerRef.current = null
+            reject(new DOMException('Operation aborted by user', 'AbortError'))
+            return
+          }
+
+          attempts += 1
+          setStageMessage(`Running YOLO inference pipeline on server... (poll attempt ${attempts}/${maxAttempts})`)
+
+          try {
+            const jobData = await getJobStatus(jobId, signal)
+
+            if (jobData.status === 'completed') {
+              clearInterval(pollingTimerRef.current)
+              pollingTimerRef.current = null
+
+              const results = jobData.detections || []
+              setDetections(results)
+              if (results.length > 0) {
+                setSelectedDetectionId(results[0].detection_id)
+              }
+              setIsProcessing(false)
+              setStageMessage('Inference completed successfully.')
+              resolve(jobData)
+              return
+            }
+
+            if (jobData.status === 'failed') {
+              clearInterval(pollingTimerRef.current)
+              pollingTimerRef.current = null
+              const err = new Error(jobData.error?.message || 'Detection job failed on backend.')
+              err.code = jobData.error?.code || 'JOB_FAILED'
+              err.details = jobData.error?.details || {}
+              reject(err)
+              return
+            }
+
+            if (attempts >= maxAttempts) {
+              clearInterval(pollingTimerRef.current)
+              pollingTimerRef.current = null
+              reject(new Error(`Detection job timed out after ${maxAttempts} polling attempts.`))
+            }
+          } catch (pollErr) {
+            if (pollErr.name === 'AbortError') {
+              clearInterval(pollingTimerRef.current)
+              pollingTimerRef.current = null
+              reject(pollErr)
+            }
+            // If transient network glitch during polling, keep polling until maxAttempts
+          }
+        }, 1500)
       })
 
-      setActiveJobId(result.job_id || null)
-      if (result.detections && result.detections.length > 0) {
-        setDetections(result.detections)
-        setSelectedDetectionId(result.detections[0].detection_id)
-      } else {
-        setDetections([])
-      }
     } catch (err) {
       if (err.name === 'AbortError') {
         setApiError({
           code: 'OPERATION_ABORTED',
-          message: 'The detection request was cancelled by the user.',
+          message: 'The detection request was cancelled by user.',
         })
       } else {
         setApiError({
@@ -151,6 +231,10 @@ export default function App() {
     } finally {
       setIsProcessing(false)
       abortControllerRef.current = null
+      if (pollingTimerRef.current) {
+        clearInterval(pollingTimerRef.current)
+        pollingTimerRef.current = null
+      }
     }
   }
 
@@ -181,7 +265,7 @@ export default function App() {
           <div className="top-banner__info">
             <h2>Underwater Debris &amp; Anomaly Detection</h2>
             <p>
-              Autonomous sidescan sonar processing pipeline conforming to B2 API Contract (`POST /api/v1/detect`).
+              Autonomous sidescan sonar processing with async polling pipeline (`POST /api/v1/detect` &rarr; `GET /api/v1/jobs/&#123;id&#125;`).
             </p>
           </div>
 
@@ -228,7 +312,7 @@ export default function App() {
           />
         </section>
 
-        {/* In-Flight Processing Status */}
+        {/* In-Flight Processing Status with Live Polling Indicator */}
         {isProcessing && (
           <section className="status-container">
             <ProcessingStatus
@@ -269,7 +353,7 @@ export default function App() {
                 🧭 Geospatial Plot (WGS84)
               </button>
               {activeJobId && (
-                <span className="job-indicator">Job ID: {activeJobId}</span>
+                <span className="job-indicator">Active Job: {activeJobId}</span>
               )}
             </div>
 

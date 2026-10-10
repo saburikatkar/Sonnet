@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Team Synora - Backend API Client
  * Interfaces with FastAPI endpoints conforming to docs/api-contract.md
  */
@@ -43,20 +43,17 @@ export async function checkHealth(signal) {
 }
 
 /**
- * 2. Detection Endpoint: POST /api/v1/detect
+ * 2. Start Detection Endpoint: POST /api/v1/detect
  * Dispatches multipart/form-data upload with 'file'.
- * If async polling is needed, polls until completion or returns detections if present.
+ * Returns job_id and status: "processing_async".
  * @param {File} file
  * @param {Object} [options]
  * @param {AbortSignal} [options.signal]
- * @param {(stage: string) => void} [options.onStageChange]
  * @returns {Promise<{job_id: string, status: string, detections: Array}>}
  */
-export async function detectFile(file, { signal, onStageChange } = {}) {
+export async function initiateDetection(file, { signal } = {}) {
   const formData = new FormData()
   formData.append('file', file)
-
-  onStageChange?.('Uploading payload to inference server...')
 
   const response = await fetch(`${API_BASE_URL}/api/v1/detect`, {
     method: 'POST',
@@ -68,52 +65,110 @@ export async function detectFile(file, { signal, onStageChange } = {}) {
     throw await parseError(response)
   }
 
-  const result = await response.json()
-
-  // If backend returns detections directly
-  if (result.detections && Array.isArray(result.detections) && result.detections.length > 0) {
-    return result
-  }
-
-  // If status is processing_async, poll job status
-  if (result.status === 'processing_async' && result.job_id) {
-    onStageChange?.('Processing anomaly scan & extracting coordinates...')
-    return await pollJobStatus(result.job_id, { signal, onStageChange, fallbackResult: result })
-  }
-
-  return result
+  return response.json()
 }
 
 /**
- * Poll job status endpoint
+ * 3. Poll Job Status Endpoint: GET /api/v1/jobs/{job_id}
+ * @param {string} jobId
+ * @param {AbortSignal} [signal]
+ * @returns {Promise<{job_id: string, status: string, detections: Array, error?: any}>}
  */
-async function pollJobStatus(jobId, { signal, onStageChange, fallbackResult, maxRetries = 10 } = {}) {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+export async function getJobStatus(jobId, signal) {
+  const response = await fetch(`${API_BASE_URL}/api/v1/jobs/${jobId}`, { signal })
+  if (!response.ok) {
+    throw await parseError(response)
+  }
+  return response.json()
+}
+
+/**
+ * High-level detection with managed async polling loop
+ * @param {File} file
+ * @param {Object} [options]
+ * @param {AbortSignal} [options.signal]
+ * @param {(stage: string, data?: any) => void} [options.onStageChange]
+ * @param {number} [options.pollIntervalMs]
+ * @param {number} [options.maxAttempts]
+ */
+export async function detectFileAsync(
+  file,
+  {
+    signal,
+    onStageChange,
+    pollIntervalMs = 1500,
+    maxAttempts = 30,
+  } = {}
+) {
+  onStageChange?.('Uploading sonar payload and registering async job...')
+
+  const initResult = await initiateDetection(file, { signal })
+  const jobId = initResult.job_id
+
+  if (!jobId) {
+    // If backend returns immediate detections
+    return initResult
+  }
+
+  onStageChange?.(`Job registered (${jobId}). Initializing inference...`, { jobId })
+
+  // Polling loop against GET /api/v1/jobs/{job_id}
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     if (signal?.aborted) {
       throw new DOMException('Operation aborted by user', 'AbortError')
     }
 
-    try {
-      const pollRes = await fetch(`${API_BASE_URL}/api/v1/detect/jobs/${jobId}`, { signal })
-      if (pollRes.ok) {
-        const jobData = await pollRes.json()
-        if (jobData.status === 'completed' || (jobData.detections && jobData.detections.length > 0)) {
-          return jobData
-        }
-      }
-    } catch (e) {
-      if (e.name === 'AbortError') throw e
+    // Wait for poll interval
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+
+    onStageChange?.(`Inference running on server... (poll attempt ${attempt}/${maxAttempts})`, { jobId, attempt })
+
+    const statusData = await getJobStatus(jobId, signal)
+
+    if (statusData.status === 'completed') {
+      onStageChange?.('Inference completed successfully. Rendering detections...')
+      return statusData
     }
 
-    onStageChange?.(`Processing anomaly scan (step ${attempt}/${maxRetries})...`)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    if (statusData.status === 'failed') {
+      const errMsg = statusData.error?.message || 'Detection job failed on backend.'
+      const err = new Error(errMsg)
+      err.code = statusData.error?.code || 'JOB_FAILED'
+      err.details = statusData.error?.details || {}
+      throw err
+    }
   }
 
-  return fallbackResult
+  throw new Error(`Detection job timed out after ${maxAttempts} polling attempts.`)
 }
 
 /**
- * 3. Sonar Log Upload: POST /api/v1/sonar/upload
+ * 4. Report Generation Endpoint: POST /api/v1/reports/generate (B1)
+ * @param {'csv' | 'geojson'} format
+ * @param {Array} detections
+ * @param {AbortSignal} [signal]
+ * @returns {Promise<Blob>}
+ */
+export async function generateReportApi(format, detections, signal) {
+  const response = await fetch(`${API_BASE_URL}/api/v1/reports/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      format: format,
+      detections: detections,
+    }),
+    signal,
+  })
+
+  if (!response.ok) {
+    throw await parseError(response)
+  }
+
+  return response.blob()
+}
+
+/**
+ * 5. Sonar Log Upload: POST /api/v1/sonar/upload
  * @param {File} file
  * @param {AbortSignal} [signal]
  */
@@ -134,7 +189,7 @@ export async function uploadSonarLog(file, signal) {
 }
 
 /**
- * 4. Geotagging Endpoint: POST /api/v1/geotag
+ * 6. Geotagging Endpoint: POST /api/v1/geotag
  * @param {Object} detection
  * @param {Array} pingMetadata
  * @param {AbortSignal} [signal]
