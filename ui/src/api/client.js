@@ -1,11 +1,21 @@
 /**
- * Team Synora - Backend API Client (Phase 4 WebSocket Streaming)
+ * Team Synora - Backend API Client
  * Interfaces with FastAPI endpoints conforming to docs/api-contract.md
  */
 
-import { API_BASE_URL } from '../config.js'
+export const API_BASE_URL = 'http://127.0.0.1:8000'
 
-export { API_BASE_URL }
+/**
+ * Derives the WebSocket URL for streaming job status updates
+ * @param {string} jobId
+ * @returns {string}
+ */
+export function getWebSocketUrl(jobId) {
+  const wsBase = API_BASE_URL.replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:')
+  return `${wsBase}/api/v1/jobs/${jobId}/ws`
+}
+
+export const getJobWebSocketUrl = getWebSocketUrl
 
 /**
  * Standard error shape parser
@@ -29,16 +39,6 @@ async function parseError(response) {
   err.status = response.status
   err.details = details
   return err
-}
-
-/**
- * Derives native WebSocket URL from API_BASE_URL
- * @param {string} jobId
- * @returns {string}
- */
-export function getWebSocketUrl(jobId) {
-  const wsBase = API_BASE_URL.replace(/^http/, 'ws')
-  return `${wsBase}/api/v1/jobs/${jobId}/ws`
 }
 
 /**
@@ -103,9 +103,13 @@ export async function getJobStatus(jobId, signal) {
  * @param {Object} [options]
  * @param {AbortSignal} [options.signal]
  * @param {(stage: string, meta?: any) => void} [options.onStageChange]
+ * @param {(jobId: string) => void} [options.onJobRegistered]
  * @returns {Promise<{job_id: string, status: string, detections: Array}>}
  */
-export async function detectFileAsync(file, { signal, onStageChange } = {}) {
+export async function detectFileAsync(
+  file,
+  { signal, onStageChange, onJobRegistered } = {}
+) {
   onStageChange?.('Uploading sonar payload and registering async job...')
 
   const initResult = await initiateDetection(file, { signal })
@@ -116,6 +120,7 @@ export async function detectFileAsync(file, { signal, onStageChange } = {}) {
     return initResult
   }
 
+  onJobRegistered?.(jobId)
   onStageChange?.(`Job registered (${jobId}). Opening real-time WebSocket connection...`, { jobId })
 
   const wsUrl = getWebSocketUrl(jobId)
@@ -171,12 +176,12 @@ export async function detectFileAsync(file, { signal, onStageChange } = {}) {
     ws.onmessage = (event) => {
       if (isFinished) return
       try {
-        const data = JSON.parse(event.data)
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
 
-        if (data.status === 'processing') {
+        if (data.status === 'processing' || data.status === 'processing_async') {
           onStageChange?.(data.stage || 'YOLO neural network analyzing side-scan sonar rungs...', {
             jobId,
-            status: 'processing',
+            status: data.status,
           })
           return
         }
