@@ -105,5 +105,33 @@ JSON object containing `format` ("csv" or "geojson") and `detections` (list of `
 
 **Response:**
 A binary file stream (`text/csv` or `application/geo+json`) with the `Content-Disposition: attachment` header.
+**Status Code:** 200 OK
 
+---
+
+### `POST /api/v1/geotag/fuse`
+Clusters duplicate or overlapping AI detections from different sonar passes into unified geographical targets (FusedTargets) based on geographic proximity.
+
+**Request:** 
+JSON object containing `detections` (list of GeotaggedDetections) and `distance_threshold_m` (float, default 15.0).
+*(See `backend.schemas.FuseRequest`)*
+
+**Response:**
+```json
+{
+  "fused_targets": [
+    {
+      "fused_id": "fused_a1b2c3d4",
+      "label": "marine_debris",
+      "max_confidence": 0.95,
+      "center_wgs84": {
+        "latitude": 36.14289,
+        "longitude": -115.15313
+      },
+      "contributing_detection_ids": ["det_1", "det_2"],
+      "cluster_radius_m": 5.2
+    }
+  ]
+}
+```
 **Status Code:** 200 OK

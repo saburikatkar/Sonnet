@@ -74,3 +74,18 @@ class JobStatusResponse(BaseModel):
     status: str
     detections: List[DetectionResult] = Field(default_factory=list)
     error: Optional[ErrorDetail] = None
+
+class FusedTarget(BaseModel):
+    fused_id: str
+    label: str
+    max_confidence: float
+    center_wgs84: GeoJSONPoint
+    contributing_detection_ids: List[str]
+    cluster_radius_m: float
+
+class FuseRequest(BaseModel):
+    detections: List[GeotaggedDetection]
+    distance_threshold_m: float = Field(15.0, description="Max distance in meters to cluster targets together")
+
+class FuseResponse(BaseModel):
+    fused_targets: List[FusedTarget]
