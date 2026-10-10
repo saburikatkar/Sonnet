@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- U2 INCREDIBLY DEEP AUDIT: Strict Content Security Policy (CSP) -->
+    <!-- Locks down the Electron renderer process from executing inline scripts or loading remote assets maliciously -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self';
+      style-src 'self' 'unsafe-inline';
+      connect-src 'self' ws://127.0.0.1:8000 http://127.0.0.1:8000;
+      img-src 'self' data:;
+      worker-src 'self';
+      object-src 'none';
+      base-uri 'none';
+    ">
+    
+    <title>Synora Sonar Terminal</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
