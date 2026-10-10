@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import Header from './components/Header'
 import UploadDropzone from './components/UploadDropzone'
 import ProcessingStatus from './components/ProcessingStatus'
@@ -93,6 +93,7 @@ export default function App() {
 
   // Handle file selection and preview creation
   function handleFileSelected(file) {
+    if (isProcessing) handleCancelOperation()
     setSelectedFile(file)
     setApiError(null)
 
@@ -162,6 +163,7 @@ export default function App() {
   }
 
   function handleResetAll() {
+    if (isProcessing) handleCancelOperation()
     setSelectedFile(null)
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewUrl(null)
@@ -169,6 +171,7 @@ export default function App() {
     setSelectedDetectionId(null)
     setApiError(null)
     setActiveJobId(null)
+    setStageMessage('')
   }
 
   return (

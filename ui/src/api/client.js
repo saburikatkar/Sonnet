@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Team Synora - Backend API Client
  * Interfaces with FastAPI endpoints conforming to docs/api-contract.md
  */
@@ -106,7 +106,18 @@ async function pollJobStatus(jobId, { signal, onStageChange, fallbackResult, max
     }
 
     onStageChange?.(`Processing anomaly scan (step ${attempt}/${maxRetries})...`)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    await new Promise((resolve, reject) => {
+      if (signal?.aborted) return reject(new DOMException('Operation aborted by user', 'AbortError'))
+      
+      const timeoutId = setTimeout(resolve, 1000)
+      
+      if (signal) {
+        signal.addEventListener('abort', () => {
+          clearTimeout(timeoutId)
+          reject(new DOMException('Operation aborted by user', 'AbortError'))
+        }, { once: true })
+      }
+    })
   }
 
   return fallbackResult
