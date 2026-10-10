@@ -43,6 +43,27 @@ Initiates anomaly detection on an uploaded image or sonar log.
 
 ### 3. `POST /api/v1/geotag`
 Geotags raw YOLO detections based on ping metadata (Internal/B1).
+**Request:** JSON object containing `detection` and `ping_metadata`.
+**Response:** JSON GeoJSON Polygon with exact real-world coordinates and metrics.
+
+### 4. `POST /api/v1/sonar/upload`
+Uploads an XTF or JSF sonar file to extract its navigation ping metadata.
+**Request:** `multipart/form-data` with `file`
+**Response (200 OK):**
+```json
+{
+  "filename": "sample.xtf",
+  "status": "SUCCESS",
+  "metadata_summary": {
+    "total_pings": 1500,
+    "valid_coordinates": 1500,
+    "valid_headings": 1500,
+    "valid_altitudes": 1500,
+    "time_range": ["2026-10-10T10:00:00Z", "2026-10-10T10:05:00Z"],
+    "channels_detected": ["port", "starboard"]
+  }
+}
+```
 
 ## Data Dictionary
 - **Bounding Box (`bbox`)**: Defined as `[x_min, y_min, x_max, y_max]`, normalized from `0.0` to `1.0`.
