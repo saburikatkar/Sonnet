@@ -7,7 +7,7 @@ import DetectionViewer from './components/DetectionViewer'
 import ResultList from './components/ResultList'
 import GeospatialMap from './components/GeospatialMap'
 import ReportModal from './components/ReportModal'
-import { initiateDetection, getJobStatus } from './api/client'
+import { detectFileAsync } from './api/client'
 
 // Sample fallback dataset matching B2 approved contract for instant demonstration
 const SAMPLE_DETECTIONS = [
@@ -90,12 +90,10 @@ export default function App() {
   const [isExportOpen, setIsExportOpen] = useState(false)
   const [activeViewTab, setActiveViewTab] = useState('viewer') // 'viewer' | 'map'
   const abortControllerRef = useRef(null)
-  const pollingTimerRef = useRef(null)
 
-  // Cleanup polling timer and preview URLs on unmount
+  // Cleanup preview URLs on unmount
   useEffect(() => {
     return () => {
-      if (pollingTimerRef.current) clearInterval(pollingTimerRef.current)
       if (previewUrl) URL.revokeObjectURL(previewUrl)
     }
   }, [previewUrl])
@@ -114,108 +112,41 @@ export default function App() {
     }
   }
 
-  // Cancel in-flight request & stop polling loop
+  // Cancel in-flight request & close WebSocket
   function handleCancelOperation() {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
-    if (pollingTimerRef.current) {
-      clearInterval(pollingTimerRef.current)
-      pollingTimerRef.current = null
-    }
     setIsProcessing(false)
     setStageMessage('Detection cancelled by user.')
   }
 
-  // Execute Async Detection & Polling Loop against B2 Backend
+  // Execute Async Detection using real-time WebSocket push updates (Phase 4)
   async function handleStartDetection() {
     if (!selectedFile) return
 
     setIsProcessing(true)
     setApiError(null)
-    setStageMessage('Uploading sonar payload and registering async job (POST /api/v1/detect)...')
+    setStageMessage('Uploading sonar payload and registering async job...')
     abortControllerRef.current = new AbortController()
-    const signal = abortControllerRef.current.signal
 
     try {
-      // Step 1: Hit POST /api/v1/detect to get job_id
-      const initResult = await initiateDetection(selectedFile, { signal })
-      const jobId = initResult.job_id
-
-      if (!jobId) {
-        // Direct detection response fallback
-        if (initResult.detections && initResult.detections.length > 0) {
-          setDetections(initResult.detections)
-          setSelectedDetectionId(initResult.detections[0].detection_id)
-        }
-        setIsProcessing(false)
-        return
-      }
-
-      setActiveJobId(jobId)
-      setStageMessage(`Job registered (${jobId}). Polling server for YOLO inference (GET /api/v1/jobs/${jobId})...`)
-
-      // Step 2: Managed Polling Loop (interval: 1500ms)
-      let attempts = 0
-      const maxAttempts = 35
-
-      await new Promise((resolve, reject) => {
-        pollingTimerRef.current = setInterval(async () => {
-          if (signal.aborted) {
-            clearInterval(pollingTimerRef.current)
-            pollingTimerRef.current = null
-            reject(new DOMException('Operation aborted by user', 'AbortError'))
-            return
-          }
-
-          attempts += 1
-          setStageMessage(`Running YOLO inference pipeline on server... (poll attempt ${attempts}/${maxAttempts})`)
-
-          try {
-            const jobData = await getJobStatus(jobId, signal)
-
-            if (jobData.status === 'completed') {
-              clearInterval(pollingTimerRef.current)
-              pollingTimerRef.current = null
-
-              const results = jobData.detections || []
-              setDetections(results)
-              if (results.length > 0) {
-                setSelectedDetectionId(results[0].detection_id)
-              }
-              setIsProcessing(false)
-              setStageMessage('Inference completed successfully.')
-              resolve(jobData)
-              return
-            }
-
-            if (jobData.status === 'failed') {
-              clearInterval(pollingTimerRef.current)
-              pollingTimerRef.current = null
-              const err = new Error(jobData.error?.message || 'Detection job failed on backend.')
-              err.code = jobData.error?.code || 'JOB_FAILED'
-              err.details = jobData.error?.details || {}
-              reject(err)
-              return
-            }
-
-            if (attempts >= maxAttempts) {
-              clearInterval(pollingTimerRef.current)
-              pollingTimerRef.current = null
-              reject(new Error(`Detection job timed out after ${maxAttempts} polling attempts.`))
-            }
-          } catch (pollErr) {
-            if (pollErr.name === 'AbortError') {
-              clearInterval(pollingTimerRef.current)
-              pollingTimerRef.current = null
-              reject(pollErr)
-            }
-            // If transient network glitch during polling, keep polling until maxAttempts
-          }
-        }, 1500)
+      const result = await detectFileAsync(selectedFile, {
+        signal: abortControllerRef.current.signal,
+        onStageChange: (stage, meta) => {
+          setStageMessage(stage)
+          if (meta?.jobId) setActiveJobId(meta.jobId)
+        },
       })
 
+      setActiveJobId(result.job_id || null)
+      const results = result.detections || []
+      setDetections(results)
+      if (results.length > 0) {
+        setSelectedDetectionId(results[0].detection_id)
+      }
+      setStageMessage('Inference completed successfully.')
     } catch (err) {
       if (err.name === 'AbortError') {
         setApiError({
@@ -232,10 +163,6 @@ export default function App() {
     } finally {
       setIsProcessing(false)
       abortControllerRef.current = null
-      if (pollingTimerRef.current) {
-        clearInterval(pollingTimerRef.current)
-        pollingTimerRef.current = null
-      }
     }
   }
 
@@ -247,7 +174,6 @@ export default function App() {
   }
 
   function handleResetAll() {
-    if (isProcessing) handleCancelOperation()
     setSelectedFile(null)
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewUrl(null)
@@ -255,7 +181,6 @@ export default function App() {
     setSelectedDetectionId(null)
     setApiError(null)
     setActiveJobId(null)
-    setStageMessage('')
   }
 
   return (
@@ -268,7 +193,7 @@ export default function App() {
           <div className="top-banner__info">
             <h2>Underwater Debris &amp; Anomaly Detection</h2>
             <p>
-              Autonomous sidescan sonar processing with async polling pipeline (`POST /api/v1/detect` &rarr; `GET /api/v1/jobs/&#123;id&#125;`).
+              Autonomous sidescan sonar processing with real-time WebSocket push updates (`ws://127.0.0.1:8000/api/v1/jobs/&#123;id&#125;/ws`).
             </p>
           </div>
 
@@ -315,7 +240,7 @@ export default function App() {
           />
         </section>
 
-        {/* In-Flight Processing Status with Live Polling Indicator */}
+        {/* In-Flight Processing Status with Real-Time WebSocket Streaming Indicator */}
         {isProcessing && (
           <section className="status-container">
             <ProcessingStatus
