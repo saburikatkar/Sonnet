@@ -4,7 +4,7 @@ import './MiniMap.css'
 
 const W = 280, H = 220 // SVG viewBox
 
-export default function MiniMap({ targets = [], selectedTargetId }) {
+export default function MiniMap({ targets = [], selectedTargetId, onSelectTarget }) {
   const gridId = `minimap-grid-${useId().replace(/:/g, '')}`
 
   const trackPath = MOCK_ROV_TRACK.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ')
@@ -71,18 +71,50 @@ export default function MiniMap({ targets = [], selectedTargetId }) {
             <text x="11" y="2.5" fontSize="6.5" fill="#e2e8f0" fontFamily="sans-serif" fontWeight="700">ROV-001 | 2.1kt</text>
           </g>
 
-          {/* Target Detection Markers (Red Diamond with White Cross) */}
-          <g transform="translate(110, 70)">
-            <polygon points="0,-6 6,0 0,6 -6,0" fill="#dc2626" stroke="#fca5a5" strokeWidth="0.8" />
-            <line x1="-3" y1="0" x2="3" y2="0" stroke="#ffffff" strokeWidth="0.8" />
-            <line x1="0" y1="-3" x2="0" y2="3" stroke="#ffffff" strokeWidth="0.8" />
-          </g>
+          {/* Target Detection Markers dynamically mapped */}
+          {targets && targets.length > 0 ? (
+            targets.map((t, idx) => {
+              const bx = t.bbox?.x_min ?? t.bbox?.x ?? 0.3
+              const by = t.bbox?.y_min ?? t.bbox?.y ?? 0.4
+              // Map normalized coordinate to mini-map survey grid
+              const mx = 60 + bx * 140
+              const my = 42 + by * 68
+              const isSelected = t.id === selectedTargetId
+              return (
+                <g
+                  key={t.id || idx}
+                  transform={`translate(${mx}, ${my})`}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => onSelectTarget?.(t.id)}
+                >
+                  {isSelected && (
+                    <circle r="9" stroke="#00c2e0" strokeWidth="1.2" fill="none" strokeDasharray="3 2" opacity="0.9" />
+                  )}
+                  <polygon points="0,-6 6,0 0,6 -6,0" fill={isSelected ? "#00c2e0" : "#dc2626"} stroke="#fca5a5" strokeWidth="0.8" />
+                  <line x1="-3" y1="0" x2="3" y2="0" stroke="#ffffff" strokeWidth="0.8" />
+                  <line x1="0" y1="-3" x2="0" y2="3" stroke="#ffffff" strokeWidth="0.8" />
+                  <text x="8" y="3" fontSize="5.5" fill={isSelected ? "#00c2e0" : "#e2e8f0"} fontFamily="monospace" fontWeight="700">
+                    {t.id}
+                  </text>
+                </g>
+              )
+            })
+          ) : (
+            <>
+              {/* Fallback baseline markers when survey targets pending */}
+              <g transform="translate(110, 70)" style={{ cursor: 'pointer' }}>
+                <polygon points="0,-6 6,0 0,6 -6,0" fill="#dc2626" stroke="#fca5a5" strokeWidth="0.8" />
+                <line x1="-3" y1="0" x2="3" y2="0" stroke="#ffffff" strokeWidth="0.8" />
+                <line x1="0" y1="-3" x2="0" y2="3" stroke="#ffffff" strokeWidth="0.8" />
+              </g>
 
-          <g transform="translate(165, 70)">
-            <polygon points="0,-6 6,0 0,6 -6,0" fill="#dc2626" stroke="#fca5a5" strokeWidth="0.8" />
-            <line x1="-3" y1="0" x2="3" y2="0" stroke="#ffffff" strokeWidth="0.8" />
-            <line x1="0" y1="-3" x2="0" y2="3" stroke="#ffffff" strokeWidth="0.8" />
-          </g>
+              <g transform="translate(165, 70)" style={{ cursor: 'pointer' }}>
+                <polygon points="0,-6 6,0 0,6 -6,0" fill="#dc2626" stroke="#fca5a5" strokeWidth="0.8" />
+                <line x1="-3" y1="0" x2="3" y2="0" stroke="#ffffff" strokeWidth="0.8" />
+                <line x1="0" y1="-3" x2="0" y2="3" stroke="#ffffff" strokeWidth="0.8" />
+              </g>
+            </>
+          )}
 
           {/* Restricted Zone Box */}
           <rect

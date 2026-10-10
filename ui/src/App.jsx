@@ -13,10 +13,10 @@ import UploadDropzone from './components/UploadDropzone'
 import ProcessingStatus from './components/ProcessingStatus'
 import ErrorBoundary from './components/ErrorBoundary'
 import ErrorBanner   from './components/ErrorBanner'
-import { checkHealth, detectFileAsync } from './api/client'
+import { checkHealth, detectFileAsync, renderSonarImageBlob } from './api/client'
 import { useWebSocket } from './hooks/useWebSocket'
 import {
-  MOCK_NAVIGATION, MOCK_TARGETS, MOCK_SURVEY_PLAN, MOCK_LAYERS,
+  MOCK_NAVIGATION, MOCK_TARGETS, MOCK_SURVEY_PLAN, MOCK_LAYERS, DEFAULT_SONAR_IMAGE,
 } from './mock/mockData'
 
 export default function App() {
@@ -30,6 +30,7 @@ export default function App() {
 
   // ── File upload & real-time detection state ─────────────────────
   const [selectedFile,     setSelectedFile]     = useState(null)
+  const [imageUrl,         setImageUrl]         = useState(DEFAULT_SONAR_IMAGE)
   const [isProcessing,     setIsProcessing]     = useState(false)
   const [stageMessage,     setStageMessage]     = useState('')
 
@@ -66,7 +67,7 @@ export default function App() {
 
   // ── Targets / detection results ────────────────────────────────
   const [targets,           setTargets]           = useState(MOCK_TARGETS)
-  const [selectedTargetId,  setSelectedTargetId]  = useState('TRK-071')
+  const [selectedTargetId,  setSelectedTargetId]  = useState('TRK-001')
   const [activeJobId,       setActiveJobId]        = useState(null)
 
   // ── Survey & layers ────────────────────────────────────────────
@@ -82,7 +83,7 @@ export default function App() {
           type: d.class_name || 'sonar',
           class: 'Sonar target',
           modelScore: d.confidence || 0.85,
-          roi: d.geotag?.side || (i % 2 === 0 ? 'port' : 'starboard'),
+          roi: d.geotag?.channel || (i % 2 === 0 ? 'port' : 'starboard'),
           timeS: new Date().toISOString().slice(14, 19),
           frame: `F-${1000 + i * 45}`,
           status: 'Detected',
@@ -92,8 +93,9 @@ export default function App() {
             w: (d.bbox.x_max != null ? d.bbox.x_max - d.bbox.x_min : d.bbox.w) || 0.05,
             h: (d.bbox.y_max != null ? d.bbox.y_max - d.bbox.y_min : d.bbox.h) || 0.15,
           } : { x: 0.3, y: 0.3, w: 0.04, h: 0.15 },
-          side: i % 2 === 0 ? 'port' : 'starboard',
+          side: d.geotag?.channel || (i % 2 === 0 ? 'port' : 'starboard'),
           confidence: d.confidence || 0.85,
+          geotag: d.geotag,
         }))
         setTargets(liveTargets)
         if (liveTargets[0]) setSelectedTargetId(liveTargets[0].id)
@@ -139,17 +141,41 @@ export default function App() {
         type: d.class_name || 'sonar',
         class: 'Sonar target',
         modelScore: d.confidence || 0.8,
-        roi: d.geotag?.side || 'port',
+        roi: d.geotag?.channel || 'port',
         timeS: '--',
         frame: `F-${i + 1}`,
         status: 'Detected',
         bbox: d.bbox || { x: 0.3, y: 0.3, w: 0.04, h: 0.15 },
-        side: 'port',
+        side: d.geotag?.channel || 'port',
         confidence: d.confidence || 0.8,
+        geotag: d.geotag,
       })))
     }
     setIsHistoryOpen(false)
   }, [])
+
+  // Handle file selection with image preview/rendering
+  const handleFileSelected = async (file) => {
+    setSelectedFile(file)
+    if (!file) {
+      setImageUrl(null)
+      return
+    }
+    const ext = '.' + file.name.split('.').pop().toLowerCase()
+    if (['.png', '.jpg', '.jpeg', '.tiff'].includes(ext)) {
+      const url = URL.createObjectURL(file)
+      setImageUrl(url)
+    } else if (['.xtf', '.jsf'].includes(ext)) {
+      try {
+        setStageMessage('Rendering raw sonar waterfall imagery...')
+        const blob = await renderSonarImageBlob(file)
+        const url = URL.createObjectURL(blob)
+        setImageUrl(url)
+      } catch (e) {
+        console.warn('Failed to render sonar image blob:', e)
+      }
+    }
+  }
 
   // Handle file detection upload pipeline
   const handleStartDetection = async () => {
@@ -167,7 +193,7 @@ export default function App() {
           type: d.class_name || 'sonar',
           class: 'Sonar target',
           modelScore: d.confidence || 0.9,
-          roi: i % 2 === 0 ? 'port' : 'starboard',
+          roi: d.geotag?.channel || (i % 2 === 0 ? 'port' : 'starboard'),
           timeS: new Date().toISOString().slice(14, 19),
           frame: `F-${800 + i * 50}`,
           status: 'Detected',
@@ -177,8 +203,9 @@ export default function App() {
             w: (d.bbox.x_max != null ? d.bbox.x_max - d.bbox.x_min : d.bbox.w) || 0.04,
             h: (d.bbox.y_max != null ? d.bbox.y_max - d.bbox.y_min : d.bbox.h) || 0.15,
           } : { x: 0.3, y: 0.3, w: 0.04, h: 0.15 },
-          side: i % 2 === 0 ? 'port' : 'starboard',
+          side: d.geotag?.channel || (i % 2 === 0 ? 'port' : 'starboard'),
           confidence: d.confidence || 0.9,
+          geotag: d.geotag,
         }))
         setTargets(mapped)
         if (mapped[0]) setSelectedTargetId(mapped[0].id)
@@ -232,10 +259,15 @@ export default function App() {
             onSelectTarget={setSelectedTargetId}
             onAddTarget={handleAddTarget}
             displaySettings={displaySettings}
+            imageUrl={imageUrl}
           />
 
           {/* Mini map (GIS Nautical Chart) */}
-          <MiniMap targets={targets} selectedTargetId={selectedTargetId} />
+          <MiniMap
+            targets={targets}
+            selectedTargetId={selectedTargetId}
+            onSelectTarget={setSelectedTargetId}
+          />
 
           {/* Far-right column: MAP LAYERS + SURVEY PLAN or ANALYTICS */}
           <div className="tarang-right-col">
@@ -279,7 +311,7 @@ export default function App() {
         {isExportOpen && (
           <ReportModal
             detections={targets}
-            fileName={selectedFile?.name || 'TARANG_SURVEY_01'}
+            fileName={selectedFile?.name || 'SONNET_SURVEY_01'}
             onClose={() => setIsExportOpen(false)}
           />
         )}
@@ -299,7 +331,7 @@ export default function App() {
               </div>
               <div className="portal-modal__body">
                 <UploadDropzone
-                  onFileSelected={setSelectedFile}
+                  onFileSelected={handleFileSelected}
                   selectedFile={selectedFile}
                   isProcessing={isProcessing}
                   onStartDetection={handleStartDetection}

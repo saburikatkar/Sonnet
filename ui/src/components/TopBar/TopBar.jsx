@@ -30,7 +30,7 @@ export default function TopBar({
           <path d="M12 2a14 14 0 0 1 3.5 10A14 14 0 0 1 12 22" stroke="#00c2e0" strokeWidth="1.2" strokeOpacity="0.5" />
           <path d="M12 2a14 14 0 0 0-3.5 10A14 14 0 0 0 12 22" stroke="#00c2e0" strokeWidth="1.2" strokeOpacity="0.5" />
         </svg>
-        <span className="topbar__brand-name">TARANG</span>
+        <span className="topbar__brand-name">SONNET</span>
       </div>
 
       {/* Nav tabs */}

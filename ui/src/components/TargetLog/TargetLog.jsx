@@ -85,24 +85,15 @@ export default function TargetLog({
                   >
                     <td className="tl-cell tl-cell--id">{t.id}</td>
                     <td className="tl-cell">
-                      {/* Realistic Amber Sonar Crop Thumbnail with Yellow Bbox */}
-                      <div className="tl-thumb-wrap">
-                        <svg className="tl-thumb-svg" viewBox="0 0 40 28">
-                          <defs>
-                            <linearGradient id={`thumbGrad-${t.id}`} x1="0" y1="0" x2="1" y2="1">
-                              <stop offset="0%" stopColor="#1e0b04" />
-                              <stop offset="50%" stopColor="#8a3c10" />
-                              <stop offset="100%" stopColor="#e08420" />
-                            </linearGradient>
-                          </defs>
-                          <rect width="40" height="28" fill={`url(#thumbGrad-${t.id})`} rx="2" />
-                          {/* Acoustic object shadow */}
-                          <rect x="8" y="7" width="10" height="14" fill="#0c0502" opacity="0.8" rx="1" />
-                          {/* Acoustic object highlight */}
-                          <rect x="18" y="7" width="12" height="14" fill="#f8b050" opacity="0.9" rx="1" />
-                          {/* Yellow Bounding Box */}
-                          <rect x="16" y="5" width="16" height="18" fill="none" stroke="#f5c400" strokeWidth="1.2" rx="1" />
-                        </svg>
+                      {/* Authentic Sonar Crop Thumbnail with HUD Reticle */}
+                      <div className={`tl-thumb-wrap ${isSelected ? 'tl-thumb-wrap--selected' : ''}`}>
+                        <img
+                          src={t.thumbnailUrl}
+                          alt={t.id}
+                          className="tl-thumb-img"
+                          loading="lazy"
+                        />
+                        <div className="tl-thumb-reticle" />
                       </div>
                     </td>
                     <td className="tl-cell">

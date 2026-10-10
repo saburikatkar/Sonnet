@@ -1,4 +1,5 @@
 import os
+from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
@@ -34,7 +35,6 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-from collections.abc import AsyncGenerator
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """
     FastAPI Dependency that provides an asynchronous database session.

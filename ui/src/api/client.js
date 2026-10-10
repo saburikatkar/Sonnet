@@ -331,3 +331,26 @@ export async function getHistoricalJobs({ skip = 0, limit = 50, status = null } 
   }
   return response.json()
 }
+
+/**
+ * 9. Sonar Image Renderer: POST /api/v1/sonar/render-image
+ * Uploads an .xtf or .jsf and receives the generated waterfall PNG blob
+ * @param {File} file
+ * @param {AbortSignal} [signal]
+ * @returns {Promise<Blob>}
+ */
+export async function renderSonarImageBlob(file, signal) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/sonar/render-image`, {
+    method: 'POST',
+    body: formData,
+    signal,
+  })
+
+  if (!response.ok) {
+    throw await parseError(response)
+  }
+  return response.blob()
+}
