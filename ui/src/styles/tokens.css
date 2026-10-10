@@ -1,0 +1,100 @@
+/* =====================================================
+   Team Synora – TARANG Design Tokens
+   Match: Image 2 dark UI reference
+   ===================================================== */
+:root {
+  /* ── Backgrounds ── */
+  --c-bg:           #0b0f14;
+  --c-panel:        #111820;
+  --c-panel-2:      #151d28;
+  --c-panel-3:      #0d1520;
+  --c-border:       #1e2d3d;
+  --c-border-hi:    #2a3f55;
+  --c-border-focus: #00c2e0;
+
+  /* ── Accent / Status ── */
+  --c-cyan:         #00c2e0;
+  --c-cyan-dim:     rgba(0, 194, 224, 0.14);
+  --c-cyan-glow:    rgba(0, 194, 224, 0.35);
+  --c-connected:    #22c55e;
+  --c-connected-bg: rgba(34, 197, 94, 0.15);
+  --c-recording:    #ef4444;
+  --c-recording-bg: rgba(239, 68, 68, 0.15);
+  --c-warning:      #f59e0b;
+  --c-confirmed:    #22c55e;
+  --c-confirmed-bg: rgba(34, 197, 94, 0.12);
+  --c-target-box:   #f5c400;
+  --c-target-label: #000000;
+
+  /* ── Sonar colormap (copper/bronze spectrum) ── */
+  --c-sonar-void:   #060300;
+  --c-sonar-lo:     #1a0800;
+  --c-sonar-mid:    #7a3010;
+  --c-sonar-hi:     #c85820;
+  --c-sonar-peak:   #e8a050;
+  --c-nadir:        #d8ecf8;
+
+  /* ── Text ── */
+  --c-text:         #b8cede;
+  --c-text-dim:     #567898;
+  --c-text-muted:   #304a62;
+  --c-text-bright:  #e8f0f8;
+  --c-text-label:   #6898b8;
+  --c-text-cyan:    #00c2e0;
+  --c-text-green:   #22c55e;
+  --c-text-red:     #ef4444;
+
+  /* ── Interactive states ── */
+  --c-toggle-off:   #1a2738;
+  --c-toggle-on:    var(--c-cyan);
+  --c-slider-track: #1a2738;
+  --c-slider-fill:  var(--c-cyan);
+  --c-row-alt:      rgba(255, 255, 255, 0.018);
+  --c-row-hover:    rgba(0, 194, 224, 0.045);
+  --c-row-selected: rgba(0, 194, 224, 0.09);
+  --c-scrollbar:    #1e2d3d;
+  --c-scrollbar-thumb: #2a4060;
+
+  /* ── Spacing scale ── */
+  --sp-1:  2px;
+  --sp-2:  4px;
+  --sp-3:  6px;
+  --sp-4:  8px;
+  --sp-5:  10px;
+  --sp-6:  12px;
+  --sp-8:  16px;
+  --sp-10: 20px;
+  --sp-12: 24px;
+
+  /* ── Border radii ── */
+  --r-xs:   2px;
+  --r-sm:   3px;
+  --r-md:   5px;
+  --r-lg:   8px;
+  --r-pill: 9999px;
+
+  /* ── Typography ── */
+  --font-ui:    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:  'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --fs-10: 10px;
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+  --fw-reg:  400;
+  --fw-med:  500;
+  --fw-semi: 600;
+  --fw-bold: 700;
+  --lh-tight:  1.2;
+  --lh-normal: 1.4;
+
+  /* ── Layout dimensions ── */
+  --topbar-h:      40px;
+  --infostrip-h:   26px;
+  --sidebar-w:     192px;
+  --sidebar-w-col: 48px;   /* collapsed */
+  --minimap-w:     244px;
+  --rightpanel-w:  212px;
+  --targetlog-h:   220px;
+  --targetlog-h-col: 32px; /* collapsed */
+}
