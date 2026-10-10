@@ -1,14 +1,26 @@
 import pytest
 import io
 import asyncio
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 from backend.main import app
-from backend.mock_engine import MockYoloEngine, TAXONOMY
 from backend.job_manager import AsyncJobManager
 
 client = TestClient(app)
 
-def test_detect_endpoint_creates_job():
+TAXONOMY = ["pipeline", "shipwreck", "mine_cylinder", "ghost_net", "crab_pot"]
+
+async def mock_infer(*args, **kwargs):
+    return [{
+        "detection_id": "det_001",
+        "class_name": "ghost_net",
+        "confidence": 0.95,
+        "bbox": {"x_min": 0.1, "y_min": 0.2, "x_max": 0.3, "y_max": 0.4},
+        "geotag": {"latitude": 45.1, "longitude": -12.4, "depth_meters": 15.0}
+    }]
+
+@patch("model.yolo_detector.YoloDetector.infer", new_callable=lambda: mock_infer)
+def test_detect_endpoint_creates_job(mocked_infer):
     file_bytes = b"fake-png-content"
     response = client.post(
         "/api/v1/detect",
@@ -50,8 +62,8 @@ def test_get_job_status_not_found():
     assert "error" in data
     assert data["error"]["code"] == "JOB_NOT_FOUND"
 
-def test_get_job_status_lifecycle():
-    # 1. Create job
+@patch("model.yolo_detector.YoloDetector.infer", new_callable=lambda: mock_infer)
+def test_get_job_status_lifecycle(mocked_infer):
     file_bytes = b"sonar-log-data"
     post_res = client.post(
         "/api/v1/detect",
@@ -60,14 +72,14 @@ def test_get_job_status_lifecycle():
     assert post_res.status_code == 200
     job_id = post_res.json()["job_id"]
 
-    # 2. Immediately poll status
     poll_res = client.get(f"/api/v1/jobs/{job_id}")
     assert poll_res.status_code == 200
     job_data = poll_res.json()
     assert job_data["job_id"] == job_id
     assert job_data["status"] in ["processing", "completed"]
 
-def test_job_websocket_status_streaming():
+@patch("model.yolo_detector.YoloDetector.infer", new_callable=lambda: mock_infer)
+def test_job_websocket_status_streaming(mocked_infer):
     file_bytes = b"sonar-log-data"
     post_res = client.post(
         "/api/v1/detect",
@@ -81,7 +93,8 @@ def test_job_websocket_status_streaming():
         assert data["job_id"] == job_id
         assert data["status"] in ["processing", "completed"]
 
-def test_job_websocket_root_alias():
+@patch("model.yolo_detector.YoloDetector.infer", new_callable=lambda: mock_infer)
+def test_job_websocket_root_alias(mocked_infer):
     file_bytes = b"sonar-log-data"
     post_res = client.post(
         "/api/v1/detect",
@@ -94,26 +107,6 @@ def test_job_websocket_root_alias():
         data = websocket.receive_json()
         assert data["job_id"] == job_id
         assert data["status"] in ["processing", "completed"]
-
-@pytest.mark.anyio
-async def test_mock_engine_detection_constraints():
-    engine = MockYoloEngine(min_delay=0.0, max_delay=0.01)
-    detections = await engine.infer("sample.png")
-
-    assert len(detections) >= 1
-    for det in detections:
-        assert det["detection_id"].startswith("det_")
-        assert det["class_name"] in TAXONOMY
-        assert 0.0 <= det["confidence"] <= 1.0
-
-        bbox = det["bbox"]
-        assert 0.0 <= bbox["x_min"] < bbox["x_max"] <= 1.0
-        assert 0.0 <= bbox["y_min"] < bbox["y_max"] <= 1.0
-
-        geotag = det["geotag"]
-        assert isinstance(geotag["latitude"], float)
-        assert isinstance(geotag["longitude"], float)
-        assert isinstance(geotag["depth_meters"], float)
 
 @pytest.mark.anyio
 async def test_job_manager_crud():

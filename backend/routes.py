@@ -9,7 +9,7 @@ from backend.schemas import (
 from backend.geotagging import GeotaggingEngine, GeotagConfig
 from backend.read_log import PingMetadata
 from backend.job_manager import job_manager
-from backend.mock_engine import mock_engine
+from model.yolo_detector import yolo_engine
 from datetime import datetime
 
 router = APIRouter(prefix="/api/v1")
@@ -70,21 +70,36 @@ async def detect_anomalies(
         )
     await file.seek(0)
 
+    import tempfile
+    import os
+
+    ext = os.path.splitext(filename)[1].lower()
+    fd, temp_path = tempfile.mkstemp(suffix=ext)
+    os.close(fd)
+    
+    with open(temp_path, "wb") as buffer:
+        buffer.write(file_content)
+
     job_id = await job_manager.create_job()
     await job_manager.update_job_status(job_id, status="processing")
 
-    async def execute_inference(jid: str, fname: str):
+    async def execute_inference(jid: str, file_path: str):
         try:
-            detections = await mock_engine.infer(fname)
+            detections = await yolo_engine.infer(file_path)
             await job_manager.update_job_status(jid, status="completed", detections=detections)
         except Exception as exc:
+            import traceback
+            traceback.print_exc()
             await job_manager.update_job_status(
                 jid,
                 status="failed",
                 error={"code": "INFERENCE_FAILED", "message": str(exc)}
             )
+        finally:
+            if os.path.exists(file_path):
+                os.remove(file_path)
 
-    background_tasks.add_task(execute_inference, job_id, filename)
+    background_tasks.add_task(execute_inference, job_id, temp_path)
 
     return DetectResponse(
         job_id=job_id,
