@@ -1,44 +1,60 @@
 import uuid
 import asyncio
-import copy
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
+from backend.database import AsyncSessionLocal, DBJob, init_db
+from sqlalchemy.future import select
+from sqlalchemy import delete
 
 @dataclass
 class JobRecord:
     job_id: str
-    status: str  # "pending", "processing", "completed", "failed"
+    status: str
     created_at: datetime
     updated_at: datetime
     detections: List[Dict[str, Any]] = field(default_factory=list)
     error: Optional[Dict[str, Any]] = None
 
 class AsyncJobManager:
-    """Thread-safe in-memory store for tracking async detection jobs."""
+    """Thread-safe database store for tracking async detection jobs."""
 
     def __init__(self):
-        self._jobs: Dict[str, JobRecord] = {}
-        self._lock = asyncio.Lock()
+        self._db_initialized = False
+
+    async def _ensure_init(self):
+        if not self._db_initialized:
+            await init_db()
+            self._db_initialized = True
 
     async def create_job(self) -> str:
+        await self._ensure_init()
         job_id = f"job_{uuid.uuid4().hex[:12]}"
-        now = datetime.now(timezone.utc)
-        record = JobRecord(
-            job_id=job_id,
-            status="pending",
-            created_at=now,
-            updated_at=now,
-            detections=[]
-        )
-        async with self._lock:
-            self._jobs[job_id] = record
+        async with AsyncSessionLocal() as session:
+            new_job = DBJob(
+                job_id=job_id,
+                status="pending",
+                detections=[]
+            )
+            session.add(new_job)
+            await session.commit()
         return job_id
 
     async def get_job(self, job_id: str) -> Optional[JobRecord]:
-        async with self._lock:
-            job = self._jobs.get(job_id)
-            return copy.deepcopy(job) if job else None
+        await self._ensure_init()
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(select(DBJob).filter(DBJob.job_id == job_id))
+            db_job = result.scalar_one_or_none()
+            if not db_job:
+                return None
+            return JobRecord(
+                job_id=db_job.job_id,
+                status=db_job.status,
+                created_at=db_job.created_at,
+                updated_at=db_job.updated_at,
+                detections=db_job.detections or [],
+                error=db_job.error
+            )
 
     async def update_job_status(
         self,
@@ -47,32 +63,41 @@ class AsyncJobManager:
         detections: Optional[List[Dict[str, Any]]] = None,
         error: Optional[Dict[str, Any]] = None
     ) -> bool:
-        async with self._lock:
-            job = self._jobs.get(job_id)
-            if not job:
+        await self._ensure_init()
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(select(DBJob).filter(DBJob.job_id == job_id))
+            db_job = result.scalar_one_or_none()
+            if not db_job:
                 return False
-            job.status = status
-            job.updated_at = datetime.now(timezone.utc)
+            
+            db_job.status = status
             if detections is not None:
-                job.detections = detections
+                db_job.detections = detections
             if error is not None:
-                job.error = error
+                db_job.error = error
+                
+            await session.commit()
+            
+            # Fetch updated state for broadcast
+            await session.refresh(db_job)
             
             # Broadcast the updated state to any subscribed websockets
             from backend.ws_manager import ws_manager
             asyncio.create_task(ws_manager.broadcast_job_update(
                 job_id,
                 {
-                    "job_id": job.job_id,
-                    "status": job.status,
-                    "detections": job.detections,
-                    "error": job.error
+                    "job_id": db_job.job_id,
+                    "status": db_job.status,
+                    "detections": db_job.detections or [],
+                    "error": db_job.error
                 }
             ))
             return True
 
     async def clear_all(self) -> None:
-        async with self._lock:
-            self._jobs.clear()
+        await self._ensure_init()
+        async with AsyncSessionLocal() as session:
+            await session.execute(delete(DBJob))
+            await session.commit()
 
 job_manager = AsyncJobManager()

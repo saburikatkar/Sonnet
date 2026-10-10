@@ -5,3 +5,5 @@ httpx
 python-multipart
 Pillow
 numpy
+sqlalchemy
+aiosqlite
