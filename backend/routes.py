@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, File, UploadFile, BackgroundTasks, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, File, UploadFile, BackgroundTasks, WebSocket, WebSocketDisconnect, Query
 from backend.schemas import (
     GeotagRequest,
     GeotaggedDetection,
@@ -177,15 +177,17 @@ from backend.schemas import PaginatedHistoryResponse, JobHistorySummary
 from typing import Optional
 
 @router.get("/jobs", tags=["Jobs"], response_model=PaginatedHistoryResponse)
-async def list_historical_jobs(skip: int = 0, limit: int = 50, status: Optional[str] = None):
+async def list_historical_jobs(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, gt=0, le=100),
+    status: Optional[str] = None
+):
     """
     Fetch a paginated list of historical detection jobs.
     """
-    if skip < 0:
-        raise HTTPException(status_code=400, detail="skip must be greater than or equal to 0")
-    if limit <= 0 or limit > 100:
-        raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
-
+    VALID_STATUSES = {'pending', 'processing', 'completed', 'failed'}
+    if status is not None and status not in VALID_STATUSES:
+        raise HTTPException(status_code=422, detail=f"Invalid status filter '{status}'. Must be one of: {sorted(VALID_STATUSES)}")
     try:
         jobs = await job_manager.get_jobs_history(skip=skip, limit=limit, status_filter=status)
         
@@ -206,3 +208,5 @@ async def list_historical_jobs(skip: int = 0, limit: int = 50, status: Optional[
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+

@@ -58,20 +58,16 @@ async def test_historical_jobs_api():
 async def test_historical_jobs_api_bad_pagination():
     # Negative skip
     response = client.get("/api/v1/jobs?skip=-1")
-    assert response.status_code == 400
-    assert response.json()["error"]["message"] == "skip must be greater than or equal to 0"
+    assert response.status_code == 422
 
     # Zero limit
     response = client.get("/api/v1/jobs?limit=0")
-    assert response.status_code == 400
-    assert response.json()["error"]["message"] == "limit must be between 1 and 100"
+    assert response.status_code == 422
 
     # Negative limit
     response = client.get("/api/v1/jobs?limit=-5")
-    assert response.status_code == 400
-    assert response.json()["error"]["message"] == "limit must be between 1 and 100"
+    assert response.status_code == 422
 
     # Excessively large limit
     response = client.get("/api/v1/jobs?limit=101")
-    assert response.status_code == 400
-    assert response.json()["error"]["message"] == "limit must be between 1 and 100"
+    assert response.status_code == 422

@@ -26,7 +26,7 @@ def upload_sonar_file(file: UploadFile = File(...)):
         # Save the uploaded file to disk
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-            
+
         if os.path.getsize(temp_path) == 0:
             raise HTTPException(
                 status_code=400,
@@ -53,7 +53,7 @@ def upload_sonar_file(file: UploadFile = File(...)):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=400, detail=f"Corrupted or unreadable sonar file: {str(e)}")
     finally:
         # Clean up the temp file
         if os.path.exists(temp_path):
@@ -81,7 +81,7 @@ def render_sonar_image(file: UploadFile = File(...)):
     try:
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-            
+
         if os.path.getsize(temp_path) == 0:
             raise HTTPException(
                 status_code=400,
@@ -111,7 +111,10 @@ def render_sonar_image(file: UploadFile = File(...)):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=400, detail=f"Corrupted or unreadable sonar file: {str(e)}")
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
+
+
+
