@@ -1,13 +1,13 @@
-from fastapi import APIRouter, HTTPException
-from backend.schemas import GeotagRequest, GeotaggedDetection
+from fastapi import APIRouter, HTTPException, File, UploadFile
+from backend.schemas import GeotagRequest, GeotaggedDetection, DetectResponse, ErrorResponse
 from backend.geotagging import GeotaggingEngine, GeotagConfig
 from backend.read_log import PingMetadata
 from datetime import datetime
 
-router = APIRouter(prefix="/api/v1/geotag", tags=["Geotagging"])
+router = APIRouter(prefix="/api/v1")
 engine = GeotaggingEngine(GeotagConfig())
 
-@router.post("/", response_model=GeotaggedDetection)
+@router.post("/geotag", tags=["Geotagging"], response_model=GeotaggedDetection)
 def geotag_detection_endpoint(request: GeotagRequest):
     try:
         # Convert raw dictionaries to PingMetadata objects
@@ -24,3 +24,13 @@ def geotag_detection_endpoint(request: GeotagRequest):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/detect", tags=["Detection"], response_model=DetectResponse, responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}})
+async def detect_anomalies(file: UploadFile = File(...)):
+    # This is a stub implementation waiting for M1/M2 integrations
+    return DetectResponse(
+        status="processing_async",
+        job_id="job_" + str(datetime.now().timestamp()),
+        detections=[]
+    )
+

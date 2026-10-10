@@ -31,3 +31,30 @@ class GeotaggedDetection(BaseModel):
 class GeotagRequest(BaseModel):
     detection: Dict[str, Any] = Field(..., description="YOLO AI detection output")
     ping_metadata: List[Dict[str, Any]] = Field(..., description="Ping metadata from sonar log")
+
+class ErrorDetail(BaseModel):
+    code: str
+    message: str
+    details: Optional[Dict[str, Any]] = None
+
+class ErrorResponse(BaseModel):
+    error: ErrorDetail
+
+class BoundingBox(BaseModel):
+    x_min: float = Field(..., ge=0.0, le=1.0)
+    y_min: float = Field(..., ge=0.0, le=1.0)
+    x_max: float = Field(..., ge=0.0, le=1.0)
+    y_max: float = Field(..., ge=0.0, le=1.0)
+
+class DetectionResult(BaseModel):
+    detection_id: str
+    class_name: str = Field(..., description="E.g., plastic, metal, fishing_net, tire, shipwreck, unknown")
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    bbox: BoundingBox
+    geotag: Optional[GeotaggedDetection] = None
+
+class DetectResponse(BaseModel):
+    job_id: Optional[str] = None
+    status: str
+    detections: List[DetectionResult]
+
