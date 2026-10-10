@@ -1,6 +1,10 @@
 import unittest
 import numpy as np
-from image_tiler import extract_tiles
+
+try:
+    from model.image_tiler import extract_tiles
+except ImportError:
+    from image_tiler import extract_tiles
 
 class TestImageTiler(unittest.TestCase):
 
