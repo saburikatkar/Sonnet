@@ -135,3 +135,10 @@ JSON object containing `detections` (list of GeotaggedDetections) and `distance_
 }
 ```
 **Status Code:** 200 OK
+
+---
+
+### `WebSocket /jobs/{job_id}/ws`
+Real-time streaming endpoint for job status updates.
+**Action:** Connect via `ws://.../jobs/{job_id}/ws`
+**Response:** Actively pushes `JobStatusResponse` JSON objects whenever the job's state updates (e.g., from `processing` to `completed` with detections, or `failed`).
