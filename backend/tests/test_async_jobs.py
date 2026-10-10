@@ -32,6 +32,17 @@ def test_detect_endpoint_rejects_unsupported_format():
     assert "error" in data
     assert data["error"]["code"] == "INVALID_FILE"
 
+def test_detect_endpoint_rejects_empty_file():
+    file_bytes = b""
+    response = client.post(
+        "/api/v1/detect",
+        files={"file": ("empty.png", io.BytesIO(file_bytes), "image/png")}
+    )
+    assert response.status_code == 400
+    data = response.json()
+    assert "error" in data
+    assert data["error"]["code"] == "EMPTY_FILE"
+
 def test_get_job_status_not_found():
     response = client.get("/api/v1/jobs/job_nonexistent_99999")
     assert response.status_code == 404

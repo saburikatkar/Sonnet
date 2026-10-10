@@ -59,6 +59,17 @@ async def detect_anomalies(
             }
         )
 
+    file_content = await file.read()
+    if len(file_content) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "EMPTY_FILE",
+                "message": "The uploaded file is empty."
+            }
+        )
+    await file.seek(0)
+
     job_id = await job_manager.create_job()
     await job_manager.update_job_status(job_id, status="processing")
 
@@ -167,6 +178,11 @@ async def list_historical_jobs(skip: int = 0, limit: int = 50, status: str = Non
     """
     Fetch a paginated list of historical detection jobs.
     """
+    if skip < 0:
+        raise HTTPException(status_code=400, detail="skip must be greater than or equal to 0")
+    if limit <= 0 or limit > 100:
+        raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
+
     try:
         jobs = await job_manager.get_jobs_history(skip=skip, limit=limit, status_filter=status)
         

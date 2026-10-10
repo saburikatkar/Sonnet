@@ -27,17 +27,31 @@ def upload_sonar_file(file: UploadFile = File(...)):
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
+        if os.path.getsize(temp_path) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "EMPTY_FILE",
+                    "message": "The uploaded file is empty."
+                }
+            )
+
         # Parse the sonar file using B1's parser
-        result = read_sonar_file(temp_path)
+        try:
+            result = read_sonar_file(temp_path)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail={"code": "CORRUPTED_FILE", "message": f"Failed to parse file: {str(e)}"})
         
         if result.status == "ERROR":
-            raise HTTPException(status_code=400, detail=f"Failed to parse file: {', '.join(result.errors)}")
+            raise HTTPException(status_code=400, detail={"code": "CORRUPTED_FILE", "message": f"Failed to parse file: {', '.join(result.errors)}"})
             
         return {
             "filename": file.filename,
             "status": result.status,
             "metadata_summary": result.summary()
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -68,9 +82,22 @@ def render_sonar_image(file: UploadFile = File(...)):
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        result = read_sonar_file(temp_path)
+        if os.path.getsize(temp_path) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "EMPTY_FILE",
+                    "message": "The uploaded file is empty."
+                }
+            )
+
+        try:
+            result = read_sonar_file(temp_path)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail={"code": "CORRUPTED_FILE", "message": f"Failed to parse file: {str(e)}"})
+            
         if result.status == "ERROR":
-            raise HTTPException(status_code=400, detail=f"Failed to parse file: {', '.join(result.errors)}")
+            raise HTTPException(status_code=400, detail={"code": "CORRUPTED_FILE", "message": f"Failed to parse file: {', '.join(result.errors)}"})
             
         # Generate the image
         img = SonarImageGenerator.generate_waterfall(result)
@@ -81,6 +108,8 @@ def render_sonar_image(file: UploadFile = File(...)):
         img_io.seek(0)
         
         return StreamingResponse(img_io, media_type="image/png")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
