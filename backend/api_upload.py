@@ -7,7 +7,7 @@ from backend.read_log import read_sonar_file
 router = APIRouter(prefix="/api/v1/sonar", tags=["Sonar File Upload"])
 
 @router.post("/upload")
-async def upload_sonar_file(file: UploadFile = File(...)):
+def upload_sonar_file(file: UploadFile = File(...)):
     """
     Upload an XTF or JSF sonar file to extract its metadata and navigation ping data.
     """
@@ -50,7 +50,7 @@ import io
 from backend.image_generator import SonarImageGenerator
 
 @router.post("/render-image")
-async def render_sonar_image(file: UploadFile = File(...)):
+def render_sonar_image(file: UploadFile = File(...)):
     """
     Upload a sonar file and immediately receive the generated waterfall image (PNG).
     """

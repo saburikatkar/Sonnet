@@ -1,5 +1,6 @@
 import uuid
 import asyncio
+import copy
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
@@ -36,7 +37,8 @@ class AsyncJobManager:
 
     async def get_job(self, job_id: str) -> Optional[JobRecord]:
         async with self._lock:
-            return self._jobs.get(job_id)
+            job = self._jobs.get(job_id)
+            return copy.deepcopy(job) if job else None
 
     async def update_job_status(
         self,
@@ -57,7 +59,7 @@ class AsyncJobManager:
                 job.error = error
             return True
 
-    async def clear_all(self):
+    async def clear_all(self) -> None:
         async with self._lock:
             self._jobs.clear()
 
