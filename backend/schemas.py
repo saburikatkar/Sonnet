@@ -89,3 +89,16 @@ class FuseRequest(BaseModel):
 
 class FuseResponse(BaseModel):
     fused_targets: List[FusedTarget]
+
+class JobHistorySummary(BaseModel):
+    job_id: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    detection_count: int
+
+class PaginatedHistoryResponse(BaseModel):
+    items: List[JobHistorySummary]
+    skip: int
+    limit: int
+    total: Optional[int] = None

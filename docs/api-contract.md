@@ -142,3 +142,32 @@ JSON object containing `detections` (list of GeotaggedDetections) and `distance_
 Real-time streaming endpoint for job status updates.
 **Action:** Connect via `ws://.../jobs/{job_id}/ws`
 **Response:** Actively pushes `JobStatusResponse` JSON objects whenever the job's state updates (e.g., from `processing` to `completed` with detections, or `failed`).
+
+---
+
+### `GET /api/v1/jobs`
+Fetches a paginated history of past jobs and their statuses. Excludes large geographic geometry arrays to save bandwidth.
+
+**Request:** 
+Query parameters:
+- `skip`: Integer (default 0)
+- `limit`: Integer (default 50)
+- `status`: String filter (optional, e.g., "completed")
+
+**Response (200 OK):**
+```json
+{
+  "items": [
+    {
+      "job_id": "job_12345",
+      "status": "completed",
+      "created_at": "2026-10-10T12:00:00Z",
+      "updated_at": "2026-10-10T12:05:00Z",
+      "detection_count": 4
+    }
+  ],
+  "skip": 0,
+  "limit": 50,
+  "total": null
+}
+```
