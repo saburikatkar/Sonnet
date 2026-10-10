@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, File, UploadFile, BackgroundTasks, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, File, UploadFile, BackgroundTasks, WebSocket, WebSocketDisconnect, Query
 from backend.schemas import (
     GeotagRequest,
     GeotaggedDetection,
@@ -163,7 +163,11 @@ async def job_status_websocket(websocket: WebSocket, job_id: str):
 from backend.schemas import PaginatedHistoryResponse, JobHistorySummary
 
 @router.get("/jobs", tags=["Jobs"], response_model=PaginatedHistoryResponse)
-async def list_historical_jobs(skip: int = 0, limit: int = 50, status: str = None):
+async def list_historical_jobs(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, gt=0, le=100),
+    status: str = None
+):
     """
     Fetch a paginated list of historical detection jobs.
     """
@@ -187,3 +191,4 @@ async def list_historical_jobs(skip: int = 0, limit: int = 50, status: str = Non
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
