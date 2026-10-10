@@ -1,4 +1,4 @@
-﻿import React, { useRef, useState, useEffect } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import { CLASS_META } from '../constants'
 
 export default function DetectionViewer({
@@ -237,13 +237,13 @@ export default function DetectionViewer({
                 <div className="tooltip-row">
                   <span>Coordinates:</span>
                   <span>
-                    {hoveredDetection.geotag.latitude?.toFixed(4)}&deg;N,{' '}
-                    {hoveredDetection.geotag.longitude?.toFixed(4)}&deg;W
+                    {hoveredDetection.geotag.latitude !== null && hoveredDetection.geotag.latitude !== undefined ? hoveredDetection.geotag.latitude.toFixed(4) : '--'}&deg;N,{' '}
+                    {hoveredDetection.geotag.longitude !== null && hoveredDetection.geotag.longitude !== undefined ? hoveredDetection.geotag.longitude.toFixed(4) : '--'}&deg;W
                   </span>
                 </div>
                 <div className="tooltip-row">
                   <span>Depth:</span>
-                  <span>{hoveredDetection.geotag.depth_meters?.toFixed(1)} m</span>
+                  <span>{hoveredDetection.geotag.depth_meters !== null && hoveredDetection.geotag.depth_meters !== undefined ? hoveredDetection.geotag.depth_meters.toFixed(1) : '--'} m</span>
                 </div>
               </>
             )}

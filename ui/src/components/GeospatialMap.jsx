@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react'
+import React, { useState } from 'react'
 import { CLASS_META } from '../constants'
 
 export default function GeospatialMap({
@@ -115,7 +115,7 @@ export default function GeospatialMap({
             <p>
               Lat: {hoveredPoint.geotag.latitude.toFixed(5)}&deg; | Lon: {hoveredPoint.geotag.longitude.toFixed(5)}&deg;
             </p>
-            <p>Depth: {hoveredPoint.geotag.depth_meters?.toFixed(1)}m | Conf: {(hoveredPoint.confidence * 100).toFixed(0)}%</p>
+            <p>Depth: {hoveredPoint.geotag.depth_meters != null ? hoveredPoint.geotag.depth_meters.toFixed(1) : '--'}m | Conf: {(hoveredPoint.confidence * 100).toFixed(0)}%</p>
           </div>
         )}
       </div>
