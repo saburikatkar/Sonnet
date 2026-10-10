@@ -82,3 +82,14 @@ For `4xx` and `5xx` errors, the API returns a standard envelope:
   }
 }
 ```
+
+### `POST /api/v1/sonar/render-image`
+Uploads an XTF or JSF sonar file and synchronously returns the generated 8-bit normalized waterfall image.
+
+**Request:** 
+`multipart/form-data` with a `file` field containing the `.xtf` or `.jsf` binary file.
+
+**Response:**
+Binary PNG image (`image/png`).
+
+**Status Code:** 200 OK
