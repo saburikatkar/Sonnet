@@ -17,3 +17,6 @@ app.include_router(sonar_upload_router)
 def health_check():
     return {"status": "ok"}
 
+
+from backend.api_reports import router as reports_router
+app.include_router(reports_router)
