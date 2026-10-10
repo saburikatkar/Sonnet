@@ -2,7 +2,7 @@
 
 AI-Powered Automated Underwater Marine Debris and Anomaly Detection using Side-Scan Sonar Imagery.
 
-Minimal Electron + React + Vite desktop application shell. Window titled **Team Synora** displaying the team header, project description, and secure runtime bridge details.
+Minimal, secure Electron + React + Vite desktop application shell with live backend status monitoring. Window titled **Team Synora** displaying team branding, runtime bridge versions, and configurable backend connectivity.
 
 ---
 
@@ -21,13 +21,14 @@ ui/
 |   |-- main.cjs       # Electron main process (package.json "main")
 |   \-- preload.cjs    # Secure preload bridge (contextIsolation: true)
 |-- src/
-|   |-- App.css
-|   |-- App.jsx        # Starter screen component
+|   |-- config.js      # Configurable API base URL (VITE_API_BASE_URL)
+|   |-- App.css        # Shell styling and status indicator styles
+|   |-- App.jsx        # Shell layout & backend status component
 |   \-- main.jsx       # React mount entry
 \-- dist/              # Production build output (git-ignored)
 ```
 
-> **Note on Entry Point:** The Electron entry point is `electron/main.cjs` as declared in `package.json` (`"main": "electron/main.cjs"`). `ui/main.js` is not used.
+> **Note on Entry Point:** The Electron entry point is `electron/main.cjs` as declared in `package.json` (`"main": "electron/main.cjs"`).
 
 ---
 
@@ -59,7 +60,7 @@ npm install
 ```
 
 ### 2. Development Mode (with Hot Reload)
-Runs Vite dev server on port 5173, waits for the port to become ready, and launches Electron:
+Runs Vite dev server on port 5173, waits for the port to become ready, and launches Electron concurrently:
 ```powershell
 npm run dev
 ```
@@ -78,38 +79,40 @@ npm start
 
 ---
 
-## Verification Steps
+## Backend Connectivity Configuration
 
-1. **Window Title**: The application window title bar reads **Team Synora**.
-2. **Starter Screen Content**: The UI displays:
-   - Header: **Team Synora**
-   - Project Subheading: **SIH26057 Desktop Application Shell**
-   - Full Description: **AI-Powered Automated Underwater Marine Debris and Anomaly Detection using Side-Scan Sonar Imagery**
-   - Status badge: `Shell Active`
-3. **Preload Bridge**: Displays live runtime versions: `Electron <version> | Chromium <version> | Node <version>`.
-4. **DevTools Security Check**: Press `Ctrl+Shift+I`:
-   - No CSP violations or console errors.
-   - `window.synora.versions` returns the versions object.
-   - Node globals (`require`, `process`) are undefined in the renderer context (`nodeIntegration: false`).
+The desktop UI communicates with the backend via `ui/src/config.js`, which reads the environment variable `VITE_API_BASE_URL`:
+
+- **Default Endpoint:** `http://127.0.0.1:8000`
+- **Custom Endpoint:** To override, create a `.env` file inside `ui/`:
+  ```env
+  VITE_API_BASE_URL=http://localhost:8000
+  ```
+- **Health Check:** The UI periodically polls and pings `${VITE_API_BASE_URL}/health` to provide real-time connection telemetry to the operator.
 
 ---
 
-## Troubleshooting
-
-| Symptom | Cause & Solution |
-| :--- | :--- |
-| **Blank page at `127.0.0.1:5500` (VS Code Live Server)** | **Vite is not running.** Live Server serves static files directly. Browsers cannot parse untranspiled JSX or resolve bare module imports (`react`) without Vite's dev server. Do not use Live Server; run `npm run dev` instead. |
-| **Port 5173 already in use** | Another Vite process is running. Stop the existing process or terminate the process listening on port 5173 before launching `npm run dev`. |
-| **Blank window after build (`npm start`)** | Asset paths not relative. Ensure `base: './'` is configured in `vite.config.js` so that `dist/index.html` can load assets over the `file://` protocol. |
-| **Electron not found / install failed** | The Electron binary download was interrupted or blocked. Delete the `node_modules` directory and reinstall via `npm install`. |
-| **Node version mismatch** | Vite 8 and Electron require modern Node.js versions. Upgrade to Node.js 20.19+, 22.12+, or 24+. |
-
----
-
-## Security Configuration
+## Security Architecture
 
 - `contextIsolation: true`
 - `nodeIntegration: false`
 - `sandbox: true`
-- Restrictive Content-Security-Policy in `index.html`
+- Content-Security-Policy configured in `index.html`
 - Dedicated preload bridge exposing only read-only version strings (`synora.versions`)
+- Zero Node.js or IPC primitives exposed to React
+
+---
+
+## Verification Steps
+
+1. **Window Title**: The application window title bar reads **Team Synora**.
+2. **Starter Screen Content**:
+   - Header: **Team Synora** (Tag: `SIH26057`)
+   - Description: **AI-Powered Automated Underwater Marine Debris and Anomaly Detection using Side-Scan Sonar Imagery**
+   - Desktop Shell badge: `Active (Electron + Vite)`
+   - Backend API badge: `Connected` (when FastAPI is running) or `Offline (Ready for Mock / B2)` with Ping button.
+3. **Preload Bridge**: Displays live runtime versions: `Electron <version> · Chromium <version> · Node <version>`.
+4. **DevTools Security Check**: Press `Ctrl+Shift+I`:
+   - No CSP violations or console errors.
+   - `window.synora.versions` returns the versions object.
+   - Node globals (`require`, `process`) are undefined in the renderer context (`nodeIntegration: false`).
