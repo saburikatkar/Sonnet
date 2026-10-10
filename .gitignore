@@ -46,3 +46,9 @@ Thumbs.db
 *.njsproj
 *.sln
 *.swp
+
+# SQLite Databases
+*.db
+*.sqlite
+*.sqlite3
+synora.db
