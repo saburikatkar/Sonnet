@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react'
+import React, { useState } from 'react'
 import { CLASS_META, CLASS_TAXONOMY } from '../constants'
 
 export default function ResultList({
@@ -29,8 +29,8 @@ export default function ResultList({
     )
   }
 
-  // 4. Sort
-  filtered.sort((a, b) => {
+  // 4. Sort (use spread to avoid mutating the filtered array in-place)
+  filtered = [...filtered].sort((a, b) => {
     if (sortBy === 'confidence_desc') return b.confidence - a.confidence
     if (sortBy === 'confidence_asc') return a.confidence - b.confidence
     if (sortBy === 'depth_desc') return (b.geotag?.depth_meters || 0) - (a.geotag?.depth_meters || 0)

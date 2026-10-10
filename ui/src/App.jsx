@@ -146,6 +146,7 @@ export default function App() {
         setSelectedDetectionId(result.detections[0].detection_id)
       } else {
         setDetections([])
+        setSelectedDetectionId(null) // clear stale reference
       }
       setStageMessage('Detection analysis complete.')
     } catch (err) {

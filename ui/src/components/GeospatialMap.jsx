@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useId } from 'react'
 import { CLASS_META } from '../constants'
 
 export default function GeospatialMap({
@@ -7,6 +7,9 @@ export default function GeospatialMap({
   onSelectDetection,
 }) {
   const [hoveredPoint, setHoveredPoint] = useState(null)
+  // useId() produces a stable, unique id per component instance — prevents
+  // SVG <pattern> id collisions if multiple map instances exist in the DOM.
+  const gridPatternId = `map-grid-${useId().replace(/:/g, '')}`
 
   // Filter detections with valid geotags
   const geotagged = detections.filter(
@@ -53,12 +56,12 @@ export default function GeospatialMap({
         <svg viewBox="0 0 500 300" className="map-svg">
           {/* Nautical Grid Lines */}
           <defs>
-            <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+            <pattern id={gridPatternId} width="50" height="50" patternUnits="userSpaceOnUse">
               <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#1f3349" strokeWidth="0.5" />
             </pattern>
           </defs>
           <rect width="500" height="300" fill="#08131f" />
-          <rect width="500" height="300" fill="url(#grid)" />
+          <rect width="500" height="300" fill={`url(#${gridPatternId})`} />
 
           {/* Compass / Sonar Track Line */}
           <line x1="250" y1="20" x2="250" y2="280" stroke="#1f3349" strokeDasharray="4 4" />

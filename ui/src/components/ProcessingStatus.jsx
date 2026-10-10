@@ -1,8 +1,8 @@
-﻿import React from 'react'
+import React from 'react'
 
 export default function ProcessingStatus({ stageMessage, onCancel }) {
   return (
-    <div className="processing-card">
+    <div className="processing-card" aria-live="polite" aria-busy="true" role="status">
       <div className="processing-card__spinner-box">
         <div className="spinner" />
       </div>
