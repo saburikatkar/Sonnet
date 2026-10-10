@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+venv/
+.venv/
+env/
+
+# Node & Frontend
+node_modules/
+dist/
+build/
+.npm/
+
+# Environment & Secrets
+.env
+.env.*
+secrets.json
+
+# Model Weights
+*.pt
+*.onnx
+*.weights
+
+# Datasets & Sonar Logs
+*.xtf
+*.jsf
+datasets/
+raw_data/
+
+# Logs & Temp
+*.log
+tmp/
+temp/
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
