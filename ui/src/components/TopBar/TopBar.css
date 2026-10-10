@@ -1,0 +1,163 @@
+.topbar {
+  height: var(--topbar-h);
+  background: var(--c-panel);
+  border-bottom: 1px solid var(--c-border);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 var(--sp-4);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+/* Brand */
+.topbar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding-right: var(--sp-8);
+  border-right: 1px solid var(--c-border);
+  margin-right: var(--sp-4);
+}
+
+.topbar__logo-icon {
+  flex-shrink: 0;
+}
+
+.topbar__brand-name {
+  font-family: var(--font-ui);
+  font-size: var(--fs-13);
+  font-weight: var(--fw-bold);
+  letter-spacing: 2.5px;
+  color: var(--c-text-bright);
+}
+
+/* Tabs */
+.topbar__tabs {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  flex: 1;
+}
+
+.topbar__tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--c-text-dim);
+  font-family: var(--font-ui);
+  font-size: var(--fs-11);
+  font-weight: var(--fw-semi);
+  letter-spacing: 0.8px;
+  padding: 0 var(--sp-6);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.topbar__tab:hover {
+  color: var(--c-text);
+}
+
+.topbar__tab--active {
+  color: var(--c-cyan);
+  border-bottom-color: var(--c-cyan);
+}
+
+/* Right side */
+.topbar__right {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-left: auto;
+}
+
+/* Status pills */
+.topbar__pill {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 3px var(--sp-4);
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semi);
+  letter-spacing: 0.5px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.topbar__pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.topbar__pill--connected {
+  color: var(--c-connected);
+  border-color: rgba(34, 197, 94, 0.35);
+  background: var(--c-connected-bg);
+}
+.topbar__pill--connected .topbar__pill-dot {
+  background: var(--c-connected);
+  box-shadow: 0 0 6px var(--c-connected);
+}
+
+.topbar__pill--disconnected {
+  color: var(--c-text-dim);
+  border-color: var(--c-border);
+}
+.topbar__pill--disconnected .topbar__pill-dot {
+  background: var(--c-text-muted);
+}
+
+/* Timer pill */
+.topbar__pill--timer {
+  cursor: pointer;
+  gap: var(--sp-2);
+}
+
+.topbar__timer-icon {
+  font-size: 9px;
+}
+
+.topbar__pill--recording {
+  color: var(--c-recording);
+  border-color: rgba(239, 68, 68, 0.35);
+  background: var(--c-recording-bg);
+}
+.topbar__pill--recording .topbar__timer-icon {
+  animation: blink 1s step-end infinite;
+}
+
+.topbar__pill--paused {
+  color: var(--c-text-dim);
+  border-color: var(--c-border);
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* Settings icon button */
+.topbar__icon-btn {
+  background: transparent;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+  color: var(--c-text-dim);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.topbar__icon-btn:hover {
+  color: var(--c-text);
+  border-color: var(--c-border-hi);
+}
