@@ -1,4 +1,4 @@
-﻿import React, { useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { ALLOWED_EXTENSIONS, MAX_FILE_SIZE_BYTES } from '../constants'
 
 export default function UploadDropzone({ onFileSelected, selectedFile, isProcessing, onStartDetection }) {
@@ -73,7 +73,11 @@ export default function UploadDropzone({ onFileSelected, selectedFile, isProcess
         />
 
         <div className="dropzone__content">
-          <div className="dropzone__icon">📁</div>
+          <div className="dropzone__icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="1.8">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+            </svg>
+          </div>
           {selectedFile ? (
             <div className="dropzone__selected-info">
               <span className="dropzone__filename">{selectedFile.name}</span>
@@ -98,7 +102,11 @@ export default function UploadDropzone({ onFileSelected, selectedFile, isProcess
 
       {validationError && (
         <div className="validation-error">
-          <span className="validation-error__icon">⚠️</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
           <span>{validationError}</span>
         </div>
       )}

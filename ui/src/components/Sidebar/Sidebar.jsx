@@ -1,15 +1,22 @@
 import React from 'react'
 import SidebarSection from './SidebarSection'
 import DisplayControls from './DisplayControls'
-import GainControls from './GainControls'
+import DetectionFilters from './DetectionFilters'
 import NavigationPanel from './NavigationPanel'
 import './Sidebar.css'
 
 export default function Sidebar({
-  collapsed, onToggleCollapse,
-  displaySettings, onDisplayChange,
-  gainSettings, onGainChange,
-  navData, dgpsFix,
+  collapsed,
+  onToggleCollapse,
+  displaySettings,
+  onDisplayChange,
+  minConfidence,
+  onConfidenceChange,
+  selectedClasses,
+  onToggleClass,
+  classCounts,
+  navData,
+  dgpsFix,
 }) {
   return (
     <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`}>
@@ -18,13 +25,21 @@ export default function Sidebar({
       </button>
       {!collapsed && (
         <>
-          <SidebarSection label="DISPLAY" defaultOpen>
+          <SidebarSection label="IMAGE CONTROLS" defaultOpen>
             <DisplayControls settings={displaySettings} onChange={onDisplayChange} />
           </SidebarSection>
-          <SidebarSection label="GAIN & PROCESSING" defaultOpen>
-            <GainControls settings={gainSettings} onChange={onGainChange} />
+
+          <SidebarSection label="DETECTION FILTERS" defaultOpen>
+            <DetectionFilters
+              minConfidence={minConfidence}
+              onConfidenceChange={onConfidenceChange}
+              selectedClasses={selectedClasses}
+              onToggleClass={onToggleClass}
+              classCounts={classCounts}
+            />
           </SidebarSection>
-          <SidebarSection label="NAVIGATION" defaultOpen badge={dgpsFix ? 'DGPS FIX' : 'NO FIX'}>
+
+          <SidebarSection label="VESSEL TELEMETRY" defaultOpen badge={dgpsFix ? 'DGPS FIX' : 'ESTIMATED'}>
             <NavigationPanel navData={navData} dgpsFix={dgpsFix} />
           </SidebarSection>
         </>

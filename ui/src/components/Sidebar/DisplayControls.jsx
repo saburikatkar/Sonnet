@@ -8,7 +8,6 @@ export default function DisplayControls({ settings, onChange }) {
       <div className="sb-row sb-row--col">
         <label className="sb-label">Color Map</label>
         <div className="sb-colormap-row">
-          <div className="sb-colormap-swatch" aria-hidden="true" />
           <select
             className="sb-select"
             value={settings.colorMap || 'MytisBronze'}
@@ -28,8 +27,8 @@ export default function DisplayControls({ settings, onChange }) {
         <input
           type="range"
           className="sb-slider"
-          min="-100"
-          max="100"
+          min="-80"
+          max="80"
           value={settings.brightness ?? 0}
           onChange={e => onChange({ brightness: +e.target.value })}
         />
@@ -44,45 +43,21 @@ export default function DisplayControls({ settings, onChange }) {
         <input
           type="range"
           className="sb-slider"
-          min="-100"
-          max="100"
+          min="-80"
+          max="80"
           value={settings.contrast ?? 0}
           onChange={e => onChange({ contrast: +e.target.value })}
         />
       </div>
 
-      {/* Gamma */}
-      <div className="sb-row sb-row--col">
-        <div className="sb-row sb-row--between">
-          <label className="sb-label">Gamma</label>
-          <span className="sb-value">{(settings.gamma ?? 1.0).toFixed(1)}</span>
-        </div>
-        <input
-          type="range"
-          className="sb-slider"
-          min="1"
-          max="30"
-          step="1"
-          value={Math.round((settings.gamma ?? 1.0) * 10)}
-          onChange={e => onChange({ gamma: +e.target.value / 10 })}
-        />
-      </div>
-
-      {/* Checkboxes */}
-      {[
-        ['slantRangeCorrection', 'Slant Range Correction'],
-        ['rangeLines',           'Range Lines'],
-        ['autoGain',             'Auto Gain (TVG)'],
-      ].map(([key, label]) => (
-        <label key={key} className="sb-checkbox">
-          <input
-            type="checkbox"
-            checked={settings[key] ?? true}
-            onChange={e => onChange({ [key]: e.target.checked })}
-          />
-          <span className="sb-checkbox__label">{label}</span>
-        </label>
-      ))}
+      {/* Reset to defaults button */}
+      <button
+        type="button"
+        className="sb-reset-btn"
+        onClick={() => onChange({ brightness: 0, contrast: 0, colorMap: 'MytisBronze' })}
+      >
+        Reset Display Defaults
+      </button>
     </div>
   )
 }

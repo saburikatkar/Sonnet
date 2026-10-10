@@ -1,78 +1,60 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import TopBar        from './components/TopBar/TopBar'
-import Sidebar       from './components/Sidebar/Sidebar'
-import SonarView     from './components/SonarView/SonarView'
-import MiniMap       from './components/MiniMap/MiniMap'
-import MapLayers     from './components/MapLayers/MapLayers'
-import SurveyPlan    from './components/SurveyPlan/SurveyPlan'
-import TargetLog     from './components/TargetLog/TargetLog'
-import HistoryPanel  from './components/HistoryPanel'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import TopBar from './components/TopBar/TopBar'
+import Sidebar from './components/Sidebar/Sidebar'
+import SonarView from './components/SonarView/SonarView'
+import TargetInspector from './components/TargetInspector/TargetInspector'
+import TargetLog from './components/TargetLog/TargetLog'
+import HistoryPanel from './components/HistoryPanel'
 import AnalyticsPanel from './components/AnalyticsPanel'
-import ReportModal   from './components/ReportModal'
+import ReportModal from './components/ReportModal'
 import UploadDropzone from './components/UploadDropzone'
 import ProcessingStatus from './components/ProcessingStatus'
 import ErrorBoundary from './components/ErrorBoundary'
-import ErrorBanner   from './components/ErrorBanner'
-import { checkHealth, detectFileAsync, renderSonarImageBlob } from './api/client'
+import ErrorBanner from './components/ErrorBanner'
+import { checkHealth, detectFileAsync } from './api/client'
 import { useWebSocket } from './hooks/useWebSocket'
 import {
-  MOCK_NAVIGATION, MOCK_TARGETS, MOCK_SURVEY_PLAN, MOCK_LAYERS, DEFAULT_SONAR_IMAGE,
+  MOCK_NAVIGATION, MOCK_TARGETS, DEFAULT_SONAR_IMAGE,
 } from './mock/mockData'
 
 export default function App() {
-  // ── Navigation / tabs ──────────────────────────────────────────
-  const [activeTab,        setActiveTab]        = useState('LIVE')
+  // ── Navigation tabs ────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState('LIVE')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [logCollapsed,     setLogCollapsed]     = useState(false)
-  const [isHistoryOpen,    setIsHistoryOpen]    = useState(false)
-  const [isExportOpen,     setIsExportOpen]     = useState(false)
-  const [isUploadOpen,     setIsUploadOpen]     = useState(false)
+  const [logCollapsed, setLogCollapsed] = useState(false)
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const [isExportOpen, setIsExportOpen] = useState(false)
+  const [isUploadOpen, setIsUploadOpen] = useState(false)
 
   // ── File upload & real-time detection state ─────────────────────
-  const [selectedFile,     setSelectedFile]     = useState(null)
-  const [imageUrl,         setImageUrl]         = useState(DEFAULT_SONAR_IMAGE)
-  const [isProcessing,     setIsProcessing]     = useState(false)
-  const [stageMessage,     setStageMessage]     = useState('')
-
-  // ── Recording timer ────────────────────────────────────────────
-  const [isRecording,    setIsRecording]    = useState(false)
-  const [recordingTime,  setRecordingTime]  = useState(0)
+  const [selectedFile, setSelectedFile] = useState(null)
+  const [imageUrl, setImageUrl] = useState(DEFAULT_SONAR_IMAGE)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [stageMessage, setStageMessage] = useState('')
 
   // ── Backend health ─────────────────────────────────────────────
   const [backendStatus, setBackendStatus] = useState('checking')
-  const [apiError,      setApiError]      = useState(null)
+  const [apiError, setApiError] = useState(null)
 
-  // ── Display / gain settings (matched to image defaults) ────────
+  // ── Display settings (applied dynamically on canvas) ──────────
   const [displaySettings, setDisplaySettings] = useState({
     colorMap: 'MytisBronze',
     brightness: 0,
     contrast: 0,
-    gamma: 1.0,
-    slantRangeCorrection: true,
-    rangeLines: true,
-    autoGain: true,
-  })
-  const [gainSettings, setGainSettings] = useState({
-    activeGainMode: 'EGN',
-    agc: false, bac: false, egn: true, tvg: false, ugc: false,
-    enableEgn: true,
-    nadirAngle: 20,
-    despeckleFilter: 50,
-    userGain: 0,
   })
 
-  // ── Navigation telemetry (WebSocket → live; else mock) ─────────
-  const [navData,  setNavData]  = useState(MOCK_NAVIGATION)
-  const [dgpsFix,  setDgpsFix]  = useState(true)
+  // ── Functional AI detection filters ─────────────────────────────
+  const [minConfidence, setMinConfidence] = useState(0.20)
+  const [selectedClasses, setSelectedClasses] = useState([])
 
-  // ── Targets / detection results ────────────────────────────────
-  const [targets,           setTargets]           = useState(MOCK_TARGETS)
-  const [selectedTargetId,  setSelectedTargetId]  = useState('TRK-001')
-  const [activeJobId,       setActiveJobId]        = useState(null)
+  // ── Navigation telemetry ───────────────────────────────────────
+  const [navData, setNavData] = useState(MOCK_NAVIGATION)
+  const [dgpsFix, setDgpsFix] = useState(true)
 
-  // ── Survey & layers ────────────────────────────────────────────
-  const [surveyPlan, setSurveyPlan] = useState(MOCK_SURVEY_PLAN)
-  const [mapLayers,  setMapLayers]  = useState(MOCK_LAYERS)
+  // ── Targets / detections ───────────────────────────────────────
+  const [targets, setTargets] = useState(MOCK_TARGETS)
+  const [selectedTargetId, setSelectedTargetId] = useState('TRK-001')
+  const [activeJobId, setActiveJobId] = useState(null)
 
   // ── WebSocket for active job telemetry & detections ────────────
   useWebSocket(activeJobId, {
@@ -81,9 +63,11 @@ export default function App() {
         const liveTargets = msg.detections.map((d, i) => ({
           id: d.detection_id || `TRK-${String(i + 1).padStart(3, '0')}`,
           type: d.class_name || 'sonar',
-          class: 'Sonar target',
+          class: d.class_name ? d.class_name.replace('_', ' ').toUpperCase() : 'Sonar Target',
           modelScore: d.confidence || 0.85,
+          confidence: d.confidence || 0.85,
           roi: d.geotag?.channel || (i % 2 === 0 ? 'port' : 'starboard'),
+          side: d.geotag?.channel || (i % 2 === 0 ? 'port' : 'starboard'),
           timeS: new Date().toISOString().slice(14, 19),
           frame: `F-${1000 + i * 45}`,
           status: 'Detected',
@@ -93,15 +77,14 @@ export default function App() {
             w: (d.bbox.x_max != null ? d.bbox.x_max - d.bbox.x_min : d.bbox.w) || 0.05,
             h: (d.bbox.y_max != null ? d.bbox.y_max - d.bbox.y_min : d.bbox.h) || 0.15,
           } : { x: 0.3, y: 0.3, w: 0.04, h: 0.15 },
-          side: d.geotag?.channel || (i % 2 === 0 ? 'port' : 'starboard'),
-          confidence: d.confidence || 0.85,
           geotag: d.geotag,
+          thumbnailUrl: imageUrl || DEFAULT_SONAR_IMAGE,
         }))
         setTargets(liveTargets)
         if (liveTargets[0]) setSelectedTargetId(liveTargets[0].id)
       }
     },
-    onNav:   (nav) => { setNavData(nav); setDgpsFix(!!nav.dgpsFix) },
+    onNav: (nav) => { setNavData(nav); setDgpsFix(!!nav.dgpsFix) },
     onStage: (stage) => setStageMessage(stage),
     onError: () => setBackendStatus('offline'),
   })
@@ -122,16 +105,44 @@ export default function App() {
     return () => { mounted = false; clearInterval(t) }
   }, [])
 
-  // ── Recording timer ────────────────────────────────────────────
-  useEffect(() => {
-    if (!isRecording) return
-    const t = setInterval(() => setRecordingTime(s => s + 1), 1000)
-    return () => clearInterval(t)
-  }, [isRecording])
+  // ── Filtered targets based on confidence & class ────────────────
+  const filteredTargets = useMemo(() => {
+    return targets.filter(t => {
+      const score = t.confidence ?? t.modelScore ?? 0.85
+      if (score < minConfidence) return false
+      if (selectedClasses.length > 0 && !selectedClasses.includes(t.type)) return false
+      return true
+    })
+  }, [targets, minConfidence, selectedClasses])
+
+  // Count by class for filter badges
+  const classCounts = useMemo(() => {
+    return targets.reduce((acc, t) => {
+      const k = t.type || 'unknown'
+      acc[k] = (acc[k] || 0) + 1
+      return acc
+    }, {})
+  }, [targets])
+
+  // Currently selected target object
+  const selectedTarget = useMemo(() => {
+    return targets.find(t => t.id === selectedTargetId) || filteredTargets[0] || null
+  }, [targets, selectedTargetId, filteredTargets])
 
   // ── Handlers ───────────────────────────────────────────────────
+  const handleToggleClass = useCallback((classKey) => {
+    setSelectedClasses(prev => {
+      if (prev.includes(classKey)) return prev.filter(c => c !== classKey)
+      return [...prev, classKey]
+    })
+  }, [])
+
+  const handleUpdateTargetStatus = useCallback((targetId, newStatus) => {
+    setTargets(prev => prev.map(t => (t.id === targetId ? { ...t, status: newStatus } : t)))
+  }, [])
+
   const handleAddTarget = useCallback((t) => setTargets(prev => [t, ...prev]), [])
-  
+
   const handleHistoryJob = useCallback((jobData) => {
     if (!jobData) return
     setActiveJobId(jobData.job_id)
@@ -139,42 +150,31 @@ export default function App() {
       setTargets(jobData.detections.map((d, i) => ({
         id: d.detection_id || `TRK-${i + 1}`,
         type: d.class_name || 'sonar',
-        class: 'Sonar target',
-        modelScore: d.confidence || 0.8,
+        class: d.class_name ? d.class_name.replace('_', ' ').toUpperCase() : 'Sonar target',
+        modelScore: d.confidence || 0.85,
+        confidence: d.confidence || 0.85,
         roi: d.geotag?.channel || 'port',
-        timeS: '--',
-        frame: `F-${i + 1}`,
-        status: 'Detected',
-        bbox: d.bbox || { x: 0.3, y: 0.3, w: 0.04, h: 0.15 },
         side: d.geotag?.channel || 'port',
-        confidence: d.confidence || 0.8,
+        timeS: '00:15.0',
+        frame: `F-${1000 + i * 20}`,
+        status: 'Detected',
+        bbox: d.bbox ? {
+          x: d.bbox.x_min ?? d.bbox.x,
+          y: d.bbox.y_min ?? d.bbox.y,
+          w: (d.bbox.x_max != null ? d.bbox.x_max - d.bbox.x_min : d.bbox.w) || 0.05,
+          h: (d.bbox.y_max != null ? d.bbox.y_max - d.bbox.y_min : d.bbox.h) || 0.15,
+        } : { x: 0.3, y: 0.3, w: 0.04, h: 0.15 },
         geotag: d.geotag,
+        thumbnailUrl: DEFAULT_SONAR_IMAGE,
       })))
     }
     setIsHistoryOpen(false)
   }, [])
 
-  // Handle file selection with image preview/rendering
-  const handleFileSelected = async (file) => {
+  const handleFileSelected = (file) => {
     setSelectedFile(file)
-    if (!file) {
-      setImageUrl(null)
-      return
-    }
-    const ext = '.' + file.name.split('.').pop().toLowerCase()
-    if (['.png', '.jpg', '.jpeg', '.tiff'].includes(ext)) {
-      const url = URL.createObjectURL(file)
-      setImageUrl(url)
-    } else if (['.xtf', '.jsf'].includes(ext)) {
-      try {
-        setStageMessage('Rendering raw sonar waterfall imagery...')
-        const blob = await renderSonarImageBlob(file)
-        const url = URL.createObjectURL(blob)
-        setImageUrl(url)
-      } catch (e) {
-        console.warn('Failed to render sonar image blob:', e)
-      }
-    }
+    const localUrl = URL.createObjectURL(file)
+    setImageUrl(localUrl)
   }
 
   // Handle file detection upload pipeline
@@ -191,9 +191,11 @@ export default function App() {
         const mapped = result.detections.map((d, i) => ({
           id: d.detection_id || `TRK-${String(i + 1).padStart(3, '0')}`,
           type: d.class_name || 'sonar',
-          class: 'Sonar target',
+          class: d.class_name ? d.class_name.replace('_', ' ').toUpperCase() : 'Sonar target',
           modelScore: d.confidence || 0.9,
+          confidence: d.confidence || 0.9,
           roi: d.geotag?.channel || (i % 2 === 0 ? 'port' : 'starboard'),
+          side: d.geotag?.channel || (i % 2 === 0 ? 'port' : 'starboard'),
           timeS: new Date().toISOString().slice(14, 19),
           frame: `F-${800 + i * 50}`,
           status: 'Detected',
@@ -203,9 +205,8 @@ export default function App() {
             w: (d.bbox.x_max != null ? d.bbox.x_max - d.bbox.x_min : d.bbox.w) || 0.04,
             h: (d.bbox.y_max != null ? d.bbox.y_max - d.bbox.y_min : d.bbox.h) || 0.15,
           } : { x: 0.3, y: 0.3, w: 0.04, h: 0.15 },
-          side: d.geotag?.channel || (i % 2 === 0 ? 'port' : 'starboard'),
-          confidence: d.confidence || 0.9,
           geotag: d.geotag,
+          thumbnailUrl: imageUrl || DEFAULT_SONAR_IMAGE,
         }))
         setTargets(mapped)
         if (mapped[0]) setSelectedTargetId(mapped[0].id)
@@ -226,80 +227,73 @@ export default function App() {
         {/* 1. TOP BAR */}
         <TopBar
           activeTab={activeTab}
-          onTabChange={(tab) => {
-            setActiveTab(tab)
-            if (tab === 'REPORT') setIsHistoryOpen(true)
-            if (tab === 'EXPORT') setIsExportOpen(true)
-            if (tab === 'PROCESSING') setIsUploadOpen(true)
-          }}
+          onTabChange={setActiveTab}
           isConnected={isConnected}
-          isRecording={isRecording}
-          recordingTime={recordingTime}
-          onToggleRecording={() => { setIsRecording(r => !r); if (isRecording) setRecordingTime(0) }}
+          onOpenUpload={() => setIsUploadOpen(true)}
+          onOpenExport={() => setIsExportOpen(true)}
+          onOpenHistory={() => setIsHistoryOpen(true)}
         />
 
-        {/* 2. MAIN BODY */}
-        <div className="tarang-body">
-          {/* Left sidebar: DISPLAY + GAIN & PROCESSING + NAVIGATION */}
-          <Sidebar
-            collapsed={sidebarCollapsed}
-            onToggleCollapse={() => setSidebarCollapsed(c => !c)}
-            displaySettings={displaySettings}
-            onDisplayChange={s => setDisplaySettings(p => ({ ...p, ...s }))}
-            gainSettings={gainSettings}
-            onGainChange={s => setGainSettings(p => ({ ...p, ...s }))}
-            navData={navData}
-            dgpsFix={dgpsFix}
-          />
-
-          {/* Center sonar waterfall */}
-          <SonarView
-            targets={targets}
-            selectedTargetId={selectedTargetId}
-            onSelectTarget={setSelectedTargetId}
-            onAddTarget={handleAddTarget}
-            displaySettings={displaySettings}
-            imageUrl={imageUrl}
-          />
-
-          {/* Mini map (GIS Nautical Chart) */}
-          <MiniMap
-            targets={targets}
-            selectedTargetId={selectedTargetId}
-            onSelectTarget={setSelectedTargetId}
-          />
-
-          {/* Far-right column: MAP LAYERS + SURVEY PLAN or ANALYTICS */}
-          <div className="tarang-right-col">
-            {activeTab === 'ANALYSIS' ? (
-              <AnalyticsPanel detections={targets} />
-            ) : (
-              <>
-                <MapLayers layers={mapLayers} onLayerChange={setMapLayers} />
-                <SurveyPlan plan={surveyPlan} />
-              </>
-            )}
+        {/* 2. MAIN WORKSPACE */}
+        {activeTab === 'ANALYSIS' ? (
+          <div className="tarang-body tarang-body--analytics">
+            <AnalyticsPanel detections={targets} />
           </div>
-        </div>
+        ) : (
+          <div className="tarang-body">
+            {/* Left: Controls & Telemetry */}
+            <Sidebar
+              collapsed={sidebarCollapsed}
+              onToggleCollapse={() => setSidebarCollapsed(c => !c)}
+              displaySettings={displaySettings}
+              onDisplayChange={s => setDisplaySettings(p => ({ ...p, ...s }))}
+              minConfidence={minConfidence}
+              onConfidenceChange={setMinConfidence}
+              selectedClasses={selectedClasses}
+              onToggleClass={handleToggleClass}
+              classCounts={classCounts}
+              navData={navData}
+              dgpsFix={dgpsFix}
+            />
 
-        {/* 3. BOTTOM TARGET LOG */}
+            {/* Center: Sonar Waterfall (Dominant display) */}
+            <SonarView
+              targets={filteredTargets}
+              selectedTargetId={selectedTargetId}
+              onSelectTarget={setSelectedTargetId}
+              onAddTarget={handleAddTarget}
+              displaySettings={displaySettings}
+              imageUrl={imageUrl}
+            />
+
+            {/* Right: Anomaly Details & Verification */}
+            <TargetInspector
+              selectedTarget={selectedTarget}
+              targets={targets}
+              onUpdateTargetStatus={handleUpdateTargetStatus}
+              onOpenExport={() => setIsExportOpen(true)}
+              onOpenUpload={() => setIsUploadOpen(true)}
+            />
+          </div>
+        )}
+
+        {/* 3. BOTTOM TARGET DETECTION LOG */}
         <TargetLog
-          targets={targets}
+          targets={filteredTargets}
           selectedTargetId={selectedTargetId}
           onSelectTarget={setSelectedTargetId}
+          onUpdateTargetStatus={handleUpdateTargetStatus}
           collapsed={logCollapsed}
           onToggleCollapse={() => setLogCollapsed(c => !c)}
         />
 
-        {/* 4. MODALS & OVERLAYS */}
-        {/* Error notification banner */}
+        {/* 4. MODALS */}
         {apiError && (
           <div style={{ position: 'fixed', bottom: 80, right: 16, zIndex: 9999, width: 340 }}>
             <ErrorBanner error={apiError} onDismiss={() => setApiError(null)} />
           </div>
         )}
 
-        {/* History / Past Reports Modal */}
         <HistoryPanel
           isOpen={isHistoryOpen}
           onClose={() => setIsHistoryOpen(false)}
@@ -307,7 +301,6 @@ export default function App() {
           currentJobId={activeJobId}
         />
 
-        {/* Export Report Modal */}
         {isExportOpen && (
           <ReportModal
             detections={targets}
@@ -316,14 +309,13 @@ export default function App() {
           />
         )}
 
-        {/* Processing / Upload Modal */}
         {isUploadOpen && (
           <div className="modal-overlay" onClick={() => setIsUploadOpen(false)}>
             <div className="portal-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 540 }}>
               <div className="portal-modal__header">
                 <div className="modal-title-group">
-                  <span className="modal-badge">SONAR DETECTION PIPELINE</span>
-                  <h3>Upload Sonar Survey Data (.xtf, .jsf, .png)</h3>
+                  <span className="modal-badge">YOLOv11 DETECTION PIPELINE</span>
+                  <h3>Process Sonar Survey File (.xtf, .jsf, image)</h3>
                 </div>
                 <button type="button" className="modal-close-btn" onClick={() => setIsUploadOpen(false)}>
                   &times;

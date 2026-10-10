@@ -5,7 +5,7 @@ const fs = require('node:fs')
 
 const isDev = process.argv.includes('--dev')
 const DEV_PORT = process.env.PORT || process.env.VITE_PORT || 5173
-const DEV_URL = process.env.VITE_DEV_SERVER_URL || process.env.ELECTRON_START_URL || `http://localhost:${DEV_PORT}`
+const DEV_URL = process.env.VITE_DEV_SERVER_URL || process.env.ELECTRON_START_URL || `http://127.0.0.1:${DEV_PORT}`
 const DIST_INDEX = path.resolve(__dirname, '../dist/index.html')
 
 function createWindow() {

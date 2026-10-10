@@ -36,31 +36,21 @@ body {
   transition: grid-template-rows 0.2s ease;
 }
 
-/* Body row: sidebar + sonar + minimap + right column */
+/* Body row: sidebar + sonar waterfall + target-inspector */
 .tarang-body {
   display: flex;
   flex-direction: row;
   overflow: hidden;
   min-height: 0;
+  flex: 1;
 }
 
-/* Far-right column stacks MapLayers + SurveyPlan */
-.tarang-right-col {
-  width: var(--rightpanel-w);
-  background: var(--c-panel);
-  border-left: 1px solid var(--c-border);
+.tarang-body--analytics {
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-/* Responsive: at 1366px collapse sidebar auto */
-@media (max-width: 1366px) {
-  :root { --sidebar-w: 160px; --minimap-w: 200px; --rightpanel-w: 190px; }
-}
-@media (max-width: 1024px) {
-  .tarang-right-col { display: none; }
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--c-bg);
 }
 
 /* ── Legacy .sonarai-app alias (kept for HistoryPanel overlay) ── */

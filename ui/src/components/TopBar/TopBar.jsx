@@ -1,23 +1,13 @@
 import React from 'react'
 import './TopBar.css'
 
-const TABS = ['LIVE', 'PLAYBACK', 'PROCESSING', 'ANALYSIS', 'EXPORT', 'REPORT', 'ADMIN']
-
-function formatTime(seconds) {
-  const h = String(Math.floor(seconds / 3600)).padStart(2, '0')
-  const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0')
-  const s = String(seconds % 60).padStart(2, '0')
-  return `${h}:${m}:${s}`
-}
-
 export default function TopBar({
   activeTab,
   onTabChange,
   isConnected,
-  isRecording,
-  recordingTime,
-  onToggleRecording,
-  onOpenSettings,
+  onOpenUpload,
+  onOpenExport,
+  onOpenHistory,
 }) {
   return (
     <header className="topbar">
@@ -31,56 +21,74 @@ export default function TopBar({
           <path d="M12 2a14 14 0 0 0-3.5 10A14 14 0 0 0 12 22" stroke="#00c2e0" strokeWidth="1.2" strokeOpacity="0.5" />
         </svg>
         <span className="topbar__brand-name">SONNET</span>
+        <span className="topbar__version">v2.4</span>
       </div>
 
       {/* Nav tabs */}
       <nav className="topbar__tabs" role="tablist" aria-label="Main navigation">
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            role="tab"
-            type="button"
-            aria-selected={activeTab === tab}
-            className={`topbar__tab ${activeTab === tab ? 'topbar__tab--active' : ''}`}
-            onClick={() => onTabChange(tab)}
-          >
-            {tab}
-          </button>
-        ))}
+        <button
+          role="tab"
+          type="button"
+          aria-selected={activeTab === 'LIVE'}
+          className={`topbar__tab ${activeTab === 'LIVE' ? 'topbar__tab--active' : ''}`}
+          onClick={() => onTabChange('LIVE')}
+        >
+          SIDESCAN WATERFALL
+        </button>
+        <button
+          role="tab"
+          type="button"
+          aria-selected={activeTab === 'ANALYSIS'}
+          className={`topbar__tab ${activeTab === 'ANALYSIS' ? 'topbar__tab--active' : ''}`}
+          onClick={() => onTabChange('ANALYSIS')}
+        >
+          ANALYTICS
+        </button>
+        <button
+          role="tab"
+          type="button"
+          className="topbar__tab"
+          onClick={onOpenExport}
+        >
+          EXPORT REPORT
+        </button>
+        <button
+          role="tab"
+          type="button"
+          className="topbar__tab"
+          onClick={onOpenHistory}
+        >
+          SESSION HISTORY
+        </button>
       </nav>
 
-      {/* Right side status pills */}
+      {/* Right side functional status & action */}
       <div className="topbar__right">
-        {/* ROV Status */}
+        {/* Backend health pill */}
         <div className={`topbar__pill topbar__pill--${isConnected ? 'connected' : 'disconnected'}`}>
           <span className="topbar__pill-dot" />
-          {isConnected ? 'ROV CONNECTED' : 'ROV OFFLINE'}
+          {isConnected ? 'BACKEND ONLINE' : 'BACKEND OFFLINE'}
         </div>
 
-        {/* Recording / Paused status */}
-        <button
-          type="button"
-          className={`topbar__pill topbar__pill--timer ${isRecording ? 'topbar__pill--recording' : 'topbar__pill--paused'}`}
-          onClick={onToggleRecording}
-          title={isRecording ? 'Click to Pause' : 'Click to Record'}
-        >
-          <span className="topbar__timer-dot" />
-          <span>{isRecording ? 'REC' : 'PAUSED'}</span>
-          <span className="topbar__timer-time">{formatTime(recordingTime)}</span>
-        </button>
+        {/* Model Ready pill */}
+        <div className="topbar__pill topbar__pill--model">
+          <span className="topbar__model-dot" />
+          YOLOv11s ACTIVE
+        </div>
 
-        {/* Settings gear */}
+        {/* Primary Action Button: Process File */}
         <button
           type="button"
-          className="topbar__icon-btn"
-          title="System Settings"
-          aria-label="Settings"
-          onClick={onOpenSettings}
+          className="topbar__upload-btn"
+          onClick={onOpenUpload}
+          title="Upload and process side-scan sonar file (.XTF, .JSF, Image)"
         >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
+          RUN DETECTION
         </button>
       </div>
     </header>

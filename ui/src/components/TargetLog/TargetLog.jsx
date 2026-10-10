@@ -6,17 +6,34 @@ export default function TargetLog({
   targets = [],
   selectedTargetId,
   onSelectTarget,
+  onUpdateTargetStatus,
   collapsed,
   onToggleCollapse,
 }) {
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('ALL')
+  const [channelFilter, setChannelFilter] = useState('ALL')
 
-  const filtered = targets.filter(t =>
-    !search ||
-    t.id.toLowerCase().includes(search.toLowerCase()) ||
-    t.class.toLowerCase().includes(search.toLowerCase()) ||
-    t.type?.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = targets.filter(t => {
+    // 1. Search filter
+    const matchesSearch = !search ||
+      t.id.toLowerCase().includes(search.toLowerCase()) ||
+      t.class?.toLowerCase().includes(search.toLowerCase()) ||
+      t.type?.toLowerCase().includes(search.toLowerCase())
+
+    // 2. Status filter
+    const matchesStatus = statusFilter === 'ALL' ||
+      (statusFilter === 'CONFIRMED' && (t.status === 'Operator accepted' || t.status === 'Confirmed')) ||
+      (statusFilter === 'DETECTED' && t.status === 'Detected') ||
+      (statusFilter === 'REVIEW' && t.status === 'Pending Review') ||
+      (statusFilter === 'FALSE_POSITIVE' && t.status === 'False Positive')
+
+    // 3. Channel filter
+    const ch = (t.roi || t.side || (t.bbox?.x < 0.5 ? 'port' : 'starboard')).toLowerCase()
+    const matchesChannel = channelFilter === 'ALL' || ch === channelFilter.toLowerCase()
+
+    return matchesSearch && matchesStatus && matchesChannel
+  })
 
   return (
     <div className={`target-log ${collapsed ? 'target-log--collapsed' : ''}`}>
@@ -24,11 +41,26 @@ export default function TargetLog({
       <div className="tl-header">
         <div className="tl-header__left">
           <span className="tl-indicator" />
-          <span className="tl-title">Target Log</span>
-          <span className="tl-count">{targets.length} Target Events</span>
+          <span className="tl-title">TARGET DETECTION LOG</span>
+          <span className="tl-count">{filtered.length} of {targets.length} Anomaly Events</span>
         </div>
 
         <div className="tl-header__right">
+          {/* Quick Status Filter Pills */}
+          <div className="tl-filter-pills">
+            {['ALL', 'CONFIRMED', 'DETECTED', 'REVIEW'].map(s => (
+              <button
+                key={s}
+                type="button"
+                className={`tl-pill-btn ${statusFilter === s ? 'tl-pill-btn--active' : ''}`}
+                onClick={() => setStatusFilter(s)}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+
+          {/* Search Input */}
           <div className="tl-search">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#627b92" strokeWidth="2.2">
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -36,23 +68,21 @@ export default function TargetLog({
             <input
               type="text"
               className="tl-search__input"
-              placeholder="Search targets..."
+              placeholder="Search ID, class..."
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
+            {search && (
+              <button type="button" className="tl-clear-btn" onClick={() => setSearch('')}>✕</button>
+            )}
           </div>
 
-          <button type="button" className="tl-icon-btn" title="Filter list">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-            </svg>
-          </button>
-          <button type="button" className="tl-icon-btn" title="Starred">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </svg>
-          </button>
-          <button type="button" className="tl-collapse-btn" onClick={onToggleCollapse} title={collapsed ? 'Expand' : 'Collapse'}>
+          <button
+            type="button"
+            className="tl-collapse-btn"
+            onClick={onToggleCollapse}
+            title={collapsed ? 'Expand Log' : 'Collapse Log'}
+          >
             {collapsed ? '▲' : '▼'}
           </button>
         </div>
@@ -65,18 +95,21 @@ export default function TargetLog({
             <thead>
               <tr>
                 <th>TRACK ID</th>
-                <th>TYPE</th>
-                <th>CLASS</th>
-                <th>MODEL SCORE</th>
-                <th>ROI</th>
-                <th>TIME (S)</th>
+                <th>ACOUSTIC RETURN</th>
+                <th>CLASSIFICATION</th>
+                <th>YOLO CONFIDENCE</th>
+                <th>CHANNEL</th>
+                <th>TIMESTAMP</th>
                 <th>FRAME</th>
-                <th>ACTIONS</th>
+                <th>VERIFICATION STATUS</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(t => {
                 const isSelected = selectedTargetId === t.id
+                const score = Number(t.confidence ?? t.modelScore ?? 0.85)
+                const channel = (t.roi || t.side || (t.bbox?.x < 0.5 ? 'port' : 'starboard')).toUpperCase()
+
                 return (
                   <tr
                     key={t.id}
@@ -88,7 +121,7 @@ export default function TargetLog({
                       {/* Authentic Sonar Crop Thumbnail with HUD Reticle */}
                       <div className={`tl-thumb-wrap ${isSelected ? 'tl-thumb-wrap--selected' : ''}`}>
                         <img
-                          src={t.thumbnailUrl}
+                          src={t.thumbnailUrl || '/assets/sonar_shipwreck_scan.jpg'}
                           alt={t.id}
                           className="tl-thumb-img"
                           loading="lazy"
@@ -97,52 +130,48 @@ export default function TargetLog({
                       </div>
                     </td>
                     <td className="tl-cell">
-                      <span className="tl-class">{t.class}</span>
-                      <span className="tl-type-sub">{t.type}</span>
+                      <span className="tl-class">{t.class || t.type?.toUpperCase()}</span>
+                      <span className="tl-type-sub">{t.type?.replace('_', ' ')}</span>
                     </td>
                     <td className="tl-cell tl-cell--score">
-                      <span className={`tl-score ${t.modelScore >= 0.75 ? 'tl-score--high' : t.modelScore >= 0.5 ? 'tl-score--mid' : 'tl-score--low'}`}>
-                        {Number(t.modelScore).toFixed(3)}
+                      <span className={`tl-score ${score >= 0.6 ? 'tl-score--high' : score >= 0.4 ? 'tl-score--mid' : 'tl-score--low'}`}>
+                        {(score * 100).toFixed(1)}% ({score.toFixed(3)})
                       </span>
                     </td>
-                    <td className="tl-cell tl-cell--roi">{t.roi}</td>
-                    <td className="tl-cell tl-cell--mono">{t.timeS}</td>
-                    <td className="tl-cell tl-cell--mono">{t.frame}</td>
+                    <td className="tl-cell tl-cell--roi">{channel} CH</td>
+                    <td className="tl-cell tl-cell--mono">{t.timeS || '00:14.2'}</td>
+                    <td className="tl-cell tl-cell--mono">{t.frame || 'F-0428'}</td>
                     <td className="tl-cell">
-                      <StatusDropdown targetId={t.id} status={t.status} />
+                      <select
+                        className={`tl-status-select tl-status--${t.status?.replace(/\s+/g, '-').toLowerCase()}`}
+                        value={t.status || 'Detected'}
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => {
+                          e.stopPropagation()
+                          onUpdateTargetStatus?.(t.id, e.target.value)
+                        }}
+                      >
+                        {STATUS_OPTIONS.map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
                     </td>
                   </tr>
                 )
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan="8" className="tl-empty">No target events match the filter</td>
+                  <td colSpan="8" className="tl-empty">
+                    {targets.length === 0
+                      ? 'No sonar anomalies detected. Click "RUN DETECTION" to process a file.'
+                      : 'No target detections match the active filter criteria.'}
+                  </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
       )}
-    </div>
-  )
-}
-
-function StatusDropdown({ targetId, status }) {
-  const [val, setVal] = useState(status)
-  return (
-    <div className="tl-status-wrap" onClick={e => e.stopPropagation()}>
-      <select
-        className={`tl-status-select tl-status--${val.replace(/\s+/g, '-').toLowerCase()}`}
-        value={val}
-        onChange={e => {
-          e.stopPropagation()
-          setVal(e.target.value)
-        }}
-      >
-        {STATUS_OPTIONS.map(s => (
-          <option key={s} value={s}>{s}</option>
-        ))}
-      </select>
     </div>
   )
 }

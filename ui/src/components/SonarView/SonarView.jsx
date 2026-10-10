@@ -40,8 +40,7 @@ export default function SonarView({
   const rafRef = useRef(null)
   const pingPosRef = useRef(0)
   const [zoom, setZoom] = useState(1)
-  const [range, setRange] = useState(100)
-  const [gain, setGain] = useState('Auto')
+  const [showOverlays, setShowOverlays] = useState(true)
   const [isLiveScrolling, setIsLiveScrolling] = useState(true)
   const [hoveredTargetId, setHoveredTargetId] = useState(null)
 
@@ -55,7 +54,12 @@ export default function SonarView({
     let isMounted = true
 
     const img = new Image()
-    img.crossOrigin = 'anonymous'
+    if (!activeImageSrc.startsWith('blob:') && !activeImageSrc.startsWith('data:')) {
+      img.crossOrigin = 'anonymous'
+    }
+    img.onerror = () => {
+      console.warn('Failed to load sonar image:', activeImageSrc)
+    }
     img.src = activeImageSrc
 
     img.onload = () => {
@@ -145,7 +149,7 @@ export default function SonarView({
       <div className="sonar-view__titlebar">
         <div className="sonar-view__title-left">
           <span className={`sonar-view__indicator ${isLiveScrolling ? 'sonar-view__indicator--live' : ''}`} />
-          <span className="sonar-view__title">Sidescan View (Live • 780 kHz)</span>
+          <span className="sonar-view__title">Sidescan View (Live 780 kHz)</span>
         </div>
 
         <div className="sonar-view__toolbar">
@@ -155,7 +159,7 @@ export default function SonarView({
             onClick={() => setIsLiveScrolling(s => !s)}
             title={isLiveScrolling ? 'Pause Live Ping Sweep' : 'Resume Live Ping Sweep'}
           >
-            {isLiveScrolling ? '⏸ FREEZE' : '▶ LIVE'}
+            {isLiveScrolling ? 'FREEZE' : 'LIVE'}
           </button>
 
           <span className="sonar-tb-sep" />
@@ -193,15 +197,14 @@ export default function SonarView({
 
           <span className="sonar-tb-sep" />
 
-          <span className="sonar-tb-label">Range:</span>
-          <select className="sonar-tb-select" value={range} onChange={e => setRange(+e.target.value)}>
-            {[50, 75, 100, 150, 200].map(r => <option key={r} value={r}>{r} m</option>)}
-          </select>
-
-          <span className="sonar-tb-label">Gain:</span>
-          <select className="sonar-tb-select" value={gain} onChange={e => setGain(e.target.value)}>
-            {['Auto', '-6 dB', '0 dB', '+6 dB', '+12 dB'].map(g => <option key={g}>{g}</option>)}
-          </select>
+          <button
+            type="button"
+            className={`sonar-tb-btn ${showOverlays ? 'sonar-tb-btn--active' : ''}`}
+            onClick={() => setShowOverlays(o => !o)}
+            title="Toggle Target Bounding Boxes and HUD Reticles"
+          >
+            {showOverlays ? 'RETICLES: ON' : 'RETICLES: OFF'}
+          </button>
         </div>
       </div>
 
@@ -242,140 +245,144 @@ export default function SonarView({
         </div>
 
         {/* Tactical Corner Reticles & Overlays */}
-        <svg className="sonar-view__overlay" viewBox="0 0 1 1" preserveAspectRatio="none">
-          {normalizedTargets.map(t => {
-            const { bbox, id } = t
-            const isSelected = id === selectedTargetId
-            const isHovered = id === hoveredTargetId
-            const cornerSizeX = Math.min(0.025, bbox.w * 0.35)
-            const cornerSizeY = Math.min(0.035, bbox.h * 0.35)
+        {showOverlays && (
+          <>
+            <svg className="sonar-view__overlay" viewBox="0 0 1 1" preserveAspectRatio="none">
+              {normalizedTargets.map(t => {
+                const { bbox, id } = t
+                const isSelected = id === selectedTargetId
+                const isHovered = id === hoveredTargetId
+                const cornerSizeX = Math.min(0.025, bbox.w * 0.35)
+                const cornerSizeY = Math.min(0.035, bbox.h * 0.35)
 
-            const strokeColor = isSelected ? '#00c2e0' : isHovered ? '#38bdf8' : '#f59e0b'
-            const strokeW = isSelected ? 0.0035 : 0.0022
+                const strokeColor = isSelected ? '#00c2e0' : isHovered ? '#38bdf8' : '#f59e0b'
+                const strokeW = isSelected ? 0.0035 : 0.0022
 
-            return (
-              <g
-                key={id}
-                className="sonar-det-reticle"
-                onClick={() => onSelectTarget?.(id)}
-                onMouseEnter={() => setHoveredTargetId(id)}
-                onMouseLeave={() => setHoveredTargetId(null)}
-                style={{ cursor: 'pointer' }}
-              >
-                {/* Subtle Target Footprint Highlight */}
-                <rect
-                  x={bbox.x}
-                  y={bbox.y}
-                  width={bbox.w}
-                  height={bbox.h}
-                  fill={isSelected ? 'rgba(0, 194, 224, 0.12)' : 'rgba(245, 158, 11, 0.04)'}
-                  stroke={isSelected ? 'rgba(0, 194, 224, 0.4)' : 'rgba(245, 158, 11, 0.2)'}
-                  strokeWidth="0.001"
-                  strokeDasharray="0.004 0.003"
-                  vectorEffect="non-scaling-stroke"
-                />
-
-                {/* Top-Left Corner Bracket */}
-                <path
-                  d={`M ${bbox.x + cornerSizeX} ${bbox.y} L ${bbox.x} ${bbox.y} L ${bbox.x} ${bbox.y + cornerSizeY}`}
-                  fill="none"
-                  stroke={strokeColor}
-                  strokeWidth={strokeW}
-                  vectorEffect="non-scaling-stroke"
-                />
-
-                {/* Top-Right Corner Bracket */}
-                <path
-                  d={`M ${bbox.x + bbox.w - cornerSizeX} ${bbox.y} L ${bbox.x + bbox.w} ${bbox.y} L ${bbox.x + bbox.w} ${bbox.y + cornerSizeY}`}
-                  fill="none"
-                  stroke={strokeColor}
-                  strokeWidth={strokeW}
-                  vectorEffect="non-scaling-stroke"
-                />
-
-                {/* Bottom-Left Corner Bracket */}
-                <path
-                  d={`M ${bbox.x} ${bbox.y + bbox.h - cornerSizeY} L ${bbox.x} ${bbox.y + bbox.h} L ${bbox.x + cornerSizeX} ${bbox.y + bbox.h}`}
-                  fill="none"
-                  stroke={strokeColor}
-                  strokeWidth={strokeW}
-                  vectorEffect="non-scaling-stroke"
-                />
-
-                {/* Bottom-Right Corner Bracket */}
-                <path
-                  d={`M ${bbox.x + bbox.w} ${bbox.y + bbox.h - cornerSizeY} L ${bbox.x + bbox.w} ${bbox.y + bbox.h} L ${bbox.x + bbox.w - cornerSizeX} ${bbox.y + bbox.h}`}
-                  fill="none"
-                  stroke={strokeColor}
-                  strokeWidth={strokeW}
-                  vectorEffect="non-scaling-stroke"
-                />
-
-                {/* Center Crosshair Reticle for Selected Target */}
-                {isSelected && (
-                  <g opacity="0.85">
-                    <line
-                      x1={bbox.x + bbox.w / 2 - 0.008}
-                      y1={bbox.y + bbox.h / 2}
-                      x2={bbox.x + bbox.w / 2 + 0.008}
-                      y2={bbox.y + bbox.h / 2}
-                      stroke="#00c2e0"
-                      strokeWidth="0.002"
+                return (
+                  <g
+                    key={id}
+                    className="sonar-det-reticle"
+                    onClick={() => onSelectTarget?.(id)}
+                    onMouseEnter={() => setHoveredTargetId(id)}
+                    onMouseLeave={() => setHoveredTargetId(null)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {/* Subtle Target Footprint Highlight */}
+                    <rect
+                      x={bbox.x}
+                      y={bbox.y}
+                      width={bbox.w}
+                      height={bbox.h}
+                      fill={isSelected ? 'rgba(0, 194, 224, 0.12)' : 'rgba(245, 158, 11, 0.04)'}
+                      stroke={isSelected ? 'rgba(0, 194, 224, 0.4)' : 'rgba(245, 158, 11, 0.2)'}
+                      strokeWidth="0.001"
+                      strokeDasharray="0.004 0.003"
                       vectorEffect="non-scaling-stroke"
                     />
-                    <line
-                      x1={bbox.x + bbox.w / 2}
-                      y1={bbox.y + bbox.h / 2 - 0.012}
-                      x2={bbox.x + bbox.w / 2}
-                      y2={bbox.y + bbox.h / 2 + 0.012}
-                      stroke="#00c2e0"
-                      strokeWidth="0.002"
+
+                    {/* Top-Left Corner Bracket */}
+                    <path
+                      d={`M ${bbox.x + cornerSizeX} ${bbox.y} L ${bbox.x} ${bbox.y} L ${bbox.x} ${bbox.y + cornerSizeY}`}
+                      fill="none"
+                      stroke={strokeColor}
+                      strokeWidth={strokeW}
                       vectorEffect="non-scaling-stroke"
                     />
+
+                    {/* Top-Right Corner Bracket */}
+                    <path
+                      d={`M ${bbox.x + bbox.w - cornerSizeX} ${bbox.y} L ${bbox.x + bbox.w} ${bbox.y} L ${bbox.x + bbox.w} ${bbox.y + cornerSizeY}`}
+                      fill="none"
+                      stroke={strokeColor}
+                      strokeWidth={strokeW}
+                      vectorEffect="non-scaling-stroke"
+                    />
+
+                    {/* Bottom-Left Corner Bracket */}
+                    <path
+                      d={`M ${bbox.x} ${bbox.y + bbox.h - cornerSizeY} L ${bbox.x} ${bbox.y + bbox.h} L ${bbox.x + cornerSizeX} ${bbox.y + bbox.h}`}
+                      fill="none"
+                      stroke={strokeColor}
+                      strokeWidth={strokeW}
+                      vectorEffect="non-scaling-stroke"
+                    />
+
+                    {/* Bottom-Right Corner Bracket */}
+                    <path
+                      d={`M ${bbox.x + bbox.w} ${bbox.y + bbox.h - cornerSizeY} L ${bbox.x + bbox.w} ${bbox.y + bbox.h} L ${bbox.x + bbox.w - cornerSizeX} ${bbox.y + bbox.h}`}
+                      fill="none"
+                      stroke={strokeColor}
+                      strokeWidth={strokeW}
+                      vectorEffect="non-scaling-stroke"
+                    />
+
+                    {/* Center Crosshair Reticle for Selected Target */}
+                    {isSelected && (
+                      <g opacity="0.85">
+                        <line
+                          x1={bbox.x + bbox.w / 2 - 0.008}
+                          y1={bbox.y + bbox.h / 2}
+                          x2={bbox.x + bbox.w / 2 + 0.008}
+                          y2={bbox.y + bbox.h / 2}
+                          stroke="#00c2e0"
+                          strokeWidth="0.002"
+                          vectorEffect="non-scaling-stroke"
+                        />
+                        <line
+                          x1={bbox.x + bbox.w / 2}
+                          y1={bbox.y + bbox.h / 2 - 0.012}
+                          x2={bbox.x + bbox.w / 2}
+                          y2={bbox.y + bbox.h / 2 + 0.012}
+                          stroke="#00c2e0"
+                          strokeWidth="0.002"
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      </g>
+                    )}
                   </g>
-                )}
-              </g>
-            )
-          })}
-        </svg>
+                )
+              })}
+            </svg>
 
-        {/* Tactical HUD Chip Labels */}
-        {normalizedTargets.map(t => {
-          const { bbox, id } = t
-          const isSelected = id === selectedTargetId
-          const isHovered = id === hoveredTargetId
-          const labelType = t.type ? t.type.toUpperCase().replace('_', ' ') : 'SONAR TARGET'
-          const confText = `${(t.confidence * 100).toFixed(1)}%`
-          const sideText = t.side || (bbox.x < 0.5 ? 'PORT' : 'STBD')
+            {/* Tactical HUD Chip Labels */}
+            {normalizedTargets.map(t => {
+              const { bbox, id } = t
+              const isSelected = id === selectedTargetId
+              const isHovered = id === hoveredTargetId
+              const labelType = t.type ? t.type.toUpperCase().replace('_', ' ') : 'SONAR TARGET'
+              const confText = `${(t.confidence * 100).toFixed(1)}%`
+              const sideText = t.side || (bbox.x < 0.5 ? 'PORT' : 'STBD')
 
-          return (
-            <div
-              key={id}
-              className={`sonar-tactical-chip ${isSelected ? 'sonar-tactical-chip--selected' : ''} ${isHovered ? 'sonar-tactical-chip--hovered' : ''}`}
-              style={{
-                left: `${Math.min(92, Math.max(1, bbox.x * 100))}%`,
-                top: `${Math.min(94, Math.max(1, bbox.y * 100))}%`,
-              }}
-              onClick={() => onSelectTarget?.(id)}
-              onMouseEnter={() => setHoveredTargetId(id)}
-              onMouseLeave={() => setHoveredTargetId(null)}
-            >
-              <div className="sonar-chip-header">
-                <span className="sonar-chip-bullet" />
-                <span className="sonar-chip-id">{id}</span>
-                <span className="sonar-chip-type">{labelType}</span>
-                <span className="sonar-chip-conf">{confText}</span>
-              </div>
-              {isSelected && (
-                <div className="sonar-chip-sub">
-                  <span>{sideText} CH</span>
-                  <span>•</span>
-                  <span>{t.status.toUpperCase()}</span>
+              return (
+                <div
+                  key={id}
+                  className={`sonar-tactical-chip ${isSelected ? 'sonar-tactical-chip--selected' : ''} ${isHovered ? 'sonar-tactical-chip--hovered' : ''}`}
+                  style={{
+                    left: `${Math.min(92, Math.max(1, bbox.x * 100))}%`,
+                    top: `${Math.min(94, Math.max(1, bbox.y * 100))}%`,
+                  }}
+                  onClick={() => onSelectTarget?.(id)}
+                  onMouseEnter={() => setHoveredTargetId(id)}
+                  onMouseLeave={() => setHoveredTargetId(null)}
+                >
+                  <div className="sonar-chip-header">
+                    <span className="sonar-chip-bullet" />
+                    <span className="sonar-chip-id">{id}</span>
+                    <span className="sonar-chip-type">{labelType}</span>
+                    <span className="sonar-chip-conf">{confText}</span>
+                  </div>
+                  {isSelected && (
+                    <div className="sonar-chip-sub">
+                      <span>{sideText} CH</span>
+                      <span>•</span>
+                      <span>{t.status.toUpperCase()}</span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          )
-        })}
+              )
+            })}
+          </>
+        )}
 
         {/* Bottom Telemetry HUD */}
         <div className="sonar-towfish-alt">
