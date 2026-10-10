@@ -44,7 +44,6 @@ export default function App() {
 
   // Backend Health Telemetry
   const [backendStatus, setBackendStatus] = useState('checking')
-  const versions = window.synora?.versions
 
   // Interactive Live Detection State
   const [selectedFile, setSelectedFile] = useState(null)
