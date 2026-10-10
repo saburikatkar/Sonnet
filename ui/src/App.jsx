@@ -7,6 +7,7 @@ import ResultList from './components/ResultList'
 import GeospatialMap from './components/GeospatialMap'
 import ReportModal from './components/ReportModal'
 import HistoryPanel from './components/HistoryPanel'
+import AnalyticsPanel from './components/AnalyticsPanel'
 import { checkHealth, detectFileAsync } from './api/client'
 
 // Curated sample detection annotations corresponding to the sonar display
@@ -760,6 +761,7 @@ export default function App() {
                 </div>
 
                 <div className="workspace-side-panel">
+                  <AnalyticsPanel detections={detections} />
                   <ResultList
                     detections={detections}
                     selectedDetectionId={selectedDetectionId}
