@@ -1,0 +1,125 @@
+.survey-plan {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.survey-plan__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--c-border);
+}
+
+.survey-plan__title {
+  font-family: var(--font-ui);
+  font-size: var(--fs-10);
+  font-weight: var(--fw-bold);
+  color: var(--c-text-label);
+  letter-spacing: 1px;
+}
+
+.sp-icon-btn {
+  background: var(--c-panel-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+  color: var(--c-text-dim);
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: var(--fs-12);
+  padding: 0;
+  line-height: 1;
+}
+
+.survey-plan__body {
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+/* Metrics row */
+.sp-metrics {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.sp-metric {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.sp-metric__val {
+  font-family: var(--font-mono);
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semi);
+  color: var(--c-text-bright);
+}
+.sp-metric__lbl {
+  font-family: var(--font-ui);
+  font-size: 9px;
+  color: var(--c-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.sp-metric-sep {
+  width: 1px;
+  height: 24px;
+  background: var(--c-border);
+}
+
+/* Status rows */
+.sp-rows { display: flex; flex-direction: column; gap: var(--sp-2); }
+.sp-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(30,45,61,0.5);
+}
+.sp-row:last-child { border-bottom: none; }
+
+.sp-row__label {
+  font-family: var(--font-ui);
+  font-size: var(--fs-10);
+  color: var(--c-text-dim);
+}
+.sp-row__value {
+  font-family: var(--font-ui);
+  font-size: var(--fs-10);
+  color: var(--c-text-bright);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.sp-row__value--mono { font-family: var(--font-mono); }
+
+.sp-active-tag {
+  background: var(--c-cyan-dim);
+  border: 1px solid rgba(0,194,224,0.3);
+  color: var(--c-cyan);
+  font-size: 9px;
+  padding: 0 3px;
+  border-radius: var(--r-xs);
+}
+
+/* Progress bar */
+.sp-progress-track {
+  height: 3px;
+  background: var(--c-border);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.sp-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--c-cyan), #00a0b8);
+  border-radius: var(--r-pill);
+  transition: width 0.5s ease;
+}
