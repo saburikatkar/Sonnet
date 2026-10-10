@@ -8,3 +8,4 @@ numpy
 sqlalchemy
 aiosqlite
 greenlet
+pytest-asyncio
