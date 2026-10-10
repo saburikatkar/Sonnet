@@ -42,12 +42,7 @@ export default function HistoryPanel({ isOpen, onClose, onSelectJob, currentJobI
       const filterParam = statusFilter === 'all' ? null : statusFilter
       const res = await getHistoricalJobs({ skip: 0, limit: 50, status: filterParam })
       const items = res.items || res.jobs || []
-      if (items.length > 0) {
-        setJobs(items)
-      } else {
-        // Fallback to sample history if database is clean
-        setJobs(SAMPLE_HISTORY_JOBS.filter(j => statusFilter === 'all' || j.status === statusFilter))
-      }
+      setJobs(items)
     } catch (err) {
       console.warn('Backend history fetch error, using fallback demo history:', err.message)
       setJobs(SAMPLE_HISTORY_JOBS.filter(j => statusFilter === 'all' || j.status === statusFilter))
@@ -218,7 +213,7 @@ export default function HistoryPanel({ isOpen, onClose, onSelectJob, currentJobI
 
         {/* Table Content */}
         <div className="history-table-container">
-          {isLoading && jobs.length === 0 ? (
+          {isLoading ? (
             <div className="history-loading-state">
               <div className="sonar-ping-spinner" />
               <p>Fetching historical mission telemetry from persistent SQLite store...</p>
