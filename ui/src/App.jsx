@@ -6,6 +6,7 @@ import DetectionViewer from './components/DetectionViewer'
 import ResultList from './components/ResultList'
 import GeospatialMap from './components/GeospatialMap'
 import ReportModal from './components/ReportModal'
+import HistoryPanel from './components/HistoryPanel'
 import { checkHealth, detectFileAsync } from './api/client'
 
 // Curated sample detection annotations corresponding to the sonar display
@@ -40,6 +41,7 @@ export default function App() {
   // Navigation & View State
   const [activeNav, setActiveNav] = useState('Home')
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false)
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
   // Backend Health Telemetry
@@ -81,6 +83,20 @@ export default function App() {
       clearInterval(timer)
     }
   }, [])
+
+  function handleSelectHistoricalJob(jobData) {
+    if (!jobData) return
+    setActiveJobId(jobData.job_id)
+    if (jobData.detections && jobData.detections.length > 0) {
+      setDetections(jobData.detections)
+      setSelectedDetectionId(jobData.detections[0].detection_id)
+    }
+    setStageMessage(`Loaded historical mission ${jobData.job_id} into workspace.`)
+    const wsEl = document.getElementById('live-workspace')
+    if (wsEl) {
+      wsEl.scrollIntoView({ behavior: 'smooth' })
+    }
+  }
 
   function handleFileSelected(file) {
     if (isProcessing) handleCancelOperation()
@@ -166,13 +182,14 @@ export default function App() {
 
           {/* Navigation Menu Pill */}
           <nav className="nav-pill">
-            {['Home', 'About', 'Dataset', 'Methodology', 'Results', 'Gallery', 'Contact'].map((item) => (
+            {['Home', 'About', 'Dataset', 'Methodology', 'Results', 'History', 'Gallery', 'Contact'].map((item) => (
               <button
                 key={item}
                 type="button"
                 className={`nav-pill__item ${activeNav === item ? 'nav-pill__item--active' : ''}`}
                 onClick={() => {
                   setActiveNav(item)
+                  if (item === 'History') setIsHistoryOpen(true)
                   if (item === 'Results' || item === 'Gallery') setIsDemoModalOpen(true)
                 }}
               >
@@ -195,6 +212,18 @@ export default function App() {
             </div>
 
             {/* Backend health pill */}
+            <button
+              type="button"
+              className="btn-history-trigger"
+              onClick={() => setIsHistoryOpen(true)}
+              title="View Mission History"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" stroke="#f59e0b" />
+                <polyline points="12 6 12 12 16 14" stroke="#fbbf24" />
+              </svg>
+              <span>History</span>
+            </button>
             <div className={`health-indicator health-indicator--${backendStatus}`} title={`Backend: ${backendStatus}`}>
               <span className="health-dot" />
               <span className="health-label">API {backendStatus}</span>
@@ -746,6 +775,14 @@ export default function App() {
           onClose={() => setIsExportOpen(false)}
         />
       )}
+
+      {/* Historical Missions Dashboard */}
+      <HistoryPanel
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        onSelectJob={handleSelectHistoricalJob}
+        currentJobId={activeJobId}
+      />
     </div>
   )
 }
