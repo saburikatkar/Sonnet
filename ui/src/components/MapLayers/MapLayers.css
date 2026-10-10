@@ -1,0 +1,111 @@
+.map-layers {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--c-border);
+  overflow: hidden;
+}
+
+.map-layers__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--c-border);
+  flex-shrink: 0;
+}
+
+.map-layers__title {
+  font-family: var(--font-ui);
+  font-size: var(--fs-10);
+  font-weight: var(--fw-bold);
+  color: var(--c-text-label);
+  letter-spacing: 1px;
+}
+
+.map-layers__body {
+  padding: var(--sp-3) var(--sp-4);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.ml-group-label {
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: var(--fw-bold);
+  color: var(--c-text-muted);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  margin-bottom: var(--sp-1);
+}
+
+.ml-layer {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 3px 0;
+}
+.ml-layer--off { opacity: 0.5; }
+
+.ml-layer__check {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  cursor: pointer;
+}
+.ml-layer__check input[type=checkbox] { accent-color: var(--c-cyan); width: 11px; height: 11px; }
+
+.ml-layer__name {
+  font-family: var(--font-ui);
+  font-size: var(--fs-10);
+  color: var(--c-text);
+}
+
+.ml-layer__opacity {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding-left: 17px;
+}
+
+.ml-slider {
+  -webkit-appearance: none;
+  flex: 1;
+  height: 2px;
+  background: var(--c-slider-track);
+  border-radius: var(--r-pill);
+  outline: none;
+  cursor: pointer;
+}
+.ml-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 8px;
+  height: 8px;
+  background: var(--c-cyan);
+  border-radius: 50%;
+}
+
+.ml-opacity-val {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--c-text-dim);
+  width: 28px;
+  text-align: right;
+}
+
+.ml-add-btn {
+  background: transparent;
+  border: 1px dashed var(--c-border);
+  border-radius: var(--r-sm);
+  color: var(--c-cyan);
+  font-family: var(--font-ui);
+  font-size: var(--fs-10);
+  padding: var(--sp-2) var(--sp-3);
+  cursor: pointer;
+  text-align: center;
+  margin-top: var(--sp-3);
+  transition: border-color 0.15s;
+}
+.ml-add-btn:hover { border-color: var(--c-cyan); }
