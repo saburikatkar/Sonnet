@@ -104,10 +104,16 @@ export default function App() {
     setApiError(null)
 
     if (file && file.type.startsWith('image/')) {
-      const url = URL.createObjectURL(file)
-      setPreviewUrl(url)
+      // Revoke previous blob URL to prevent memory leak
+      setPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return URL.createObjectURL(file)
+      })
     } else {
-      setPreviewUrl(null)
+      setPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return null
+      })
     }
   }
 
