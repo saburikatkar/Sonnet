@@ -12,7 +12,8 @@
     "dev:electron": "electron . --dev",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "npm run build && electron ."
+    "start": "npm run build && electron .",
+    "test": "node --test test/contract.test.js"
   },
   "dependencies": {
     "react": "^19.3.0",

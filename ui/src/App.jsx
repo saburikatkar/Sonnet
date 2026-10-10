@@ -1,135 +1,324 @@
-import { useState, useEffect, useCallback } from 'react'
-import { API_BASE_URL } from './config.js'
+import React, { useState, useRef, useEffect } from 'react'
+import Header from './components/Header'
+import UploadDropzone from './components/UploadDropzone'
+import ProcessingStatus from './components/ProcessingStatus'
+import ErrorBanner from './components/ErrorBanner'
+import DetectionViewer from './components/DetectionViewer'
+import ResultList from './components/ResultList'
+import GeospatialMap from './components/GeospatialMap'
+import ReportModal from './components/ReportModal'
+import { detectFile } from './api/client'
+
+// Sample fallback dataset matching B2 approved contract for instant demonstration
+const SAMPLE_DETECTIONS = [
+  {
+    detection_id: "det_001",
+    class_name: "plastic",
+    confidence: 0.94,
+    bbox: {
+      x_min: 0.12,
+      y_min: 0.18,
+      x_max: 0.32,
+      y_max: 0.36
+    },
+    geotag: {
+      latitude: 45.1234,
+      longitude: -12.4567,
+      depth_meters: 14.5
+    }
+  },
+  {
+    detection_id: "det_002",
+    class_name: "fishing_net",
+    confidence: 0.88,
+    bbox: {
+      x_min: 0.45,
+      y_min: 0.40,
+      x_max: 0.72,
+      y_max: 0.65
+    },
+    geotag: {
+      latitude: 45.1245,
+      longitude: -12.4542,
+      depth_meters: 18.2
+    }
+  },
+  {
+    detection_id: "det_003",
+    class_name: "tire",
+    confidence: 0.81,
+    bbox: {
+      x_min: 0.20,
+      y_min: 0.65,
+      x_max: 0.35,
+      y_max: 0.80
+    },
+    geotag: {
+      latitude: 45.1219,
+      longitude: -12.4589,
+      depth_meters: 15.1
+    }
+  },
+  {
+    detection_id: "det_004",
+    class_name: "metal",
+    confidence: 0.76,
+    bbox: {
+      x_min: 0.75,
+      y_min: 0.15,
+      x_max: 0.92,
+      y_max: 0.32
+    },
+    geotag: {
+      latitude: 45.1256,
+      longitude: -12.4510,
+      depth_meters: 21.0
+    }
+  }
+]
 
 export default function App() {
-  const versions = window.synora?.versions
-  const [backendStatus, setBackendStatus] = useState('checking') // 'checking' | 'connected' | 'offline'
-  const [backendLatency, setBackendLatency] = useState(null)
-  const [lastChecked, setLastChecked] = useState(null)
+  const [selectedFile, setSelectedFile] = useState(null)
+  const [previewUrl, setPreviewUrl] = useState(null)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [stageMessage, setStageMessage] = useState('')
+  const [apiError, setApiError] = useState(null)
+  const [activeJobId, setActiveJobId] = useState(null)
+  const [detections, setDetections] = useState([])
+  const [selectedDetectionId, setSelectedDetectionId] = useState(null)
+  const [confidenceThreshold, setConfidenceThreshold] = useState(0.5)
+  const [isExportOpen, setIsExportOpen] = useState(false)
+  const [activeViewTab, setActiveViewTab] = useState('viewer') // 'viewer' | 'map'
+  const abortControllerRef = useRef(null)
 
-  const checkBackendHealth = useCallback(async () => {
-    setBackendStatus('checking')
-    const startTime = performance.now()
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 3500)
+  // Handle file selection and preview creation
+  function handleFileSelected(file) {
+    if (isProcessing) handleCancelOperation()
+    setSelectedFile(file)
+    setApiError(null)
+
+    if (file && file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file)
+      setPreviewUrl(url)
+    } else {
+      setPreviewUrl(null)
+    }
+  }
+
+  // Cancel in-flight request
+  function handleCancelOperation() {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setIsProcessing(false)
+    setStageMessage('Operation cancelled by user.')
+  }
+
+  // Run anomaly detection pipeline against B2 backend
+  async function handleStartDetection() {
+    if (!selectedFile) return
+
+    setIsProcessing(true)
+    setApiError(null)
+    abortControllerRef.current = new AbortController()
 
     try {
-      const response = await fetch(`${API_BASE_URL}/health`, {
-        signal: controller.signal,
-        headers: { 'Accept': 'application/json' },
+      const result = await detectFile(selectedFile, {
+        signal: abortControllerRef.current.signal,
+        onStageChange: (stage) => setStageMessage(stage),
       })
-      clearTimeout(timeoutId)
-      const elapsed = Math.round(performance.now() - startTime)
 
-      if (response.ok) {
-        const data = await response.json()
-        if (data.status === 'ok') {
-          setBackendStatus('connected')
-          setBackendLatency(elapsed)
-          setLastChecked(new Date().toLocaleTimeString())
-          return
-        }
+      setActiveJobId(result.job_id || null)
+      if (result.detections && result.detections.length > 0) {
+        setDetections(result.detections)
+        setSelectedDetectionId(result.detections[0].detection_id)
+      } else {
+        setDetections([])
       }
-      setBackendStatus('offline')
-      setBackendLatency(null)
-      setLastChecked(new Date().toLocaleTimeString())
-    } catch {
-      clearTimeout(timeoutId)
-      setBackendStatus('offline')
-      setBackendLatency(null)
-      setLastChecked(new Date().toLocaleTimeString())
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        setApiError({
+          code: 'OPERATION_ABORTED',
+          message: 'The detection request was cancelled by the user.',
+        })
+      } else {
+        setApiError({
+          code: err.code || 'API_CONNECTION_ERROR',
+          message: err.message || 'Failed to communicate with FastAPI backend at localhost:8000',
+          details: err.details,
+        })
+      }
+    } finally {
+      setIsProcessing(false)
+      abortControllerRef.current = null
     }
-  }, [])
+  }
 
-  useEffect(() => {
-    checkBackendHealth()
-  }, [checkBackendHealth])
+  // Load sample dataset for demonstration when backend is offline
+  function handleLoadSampleData() {
+    setDetections(SAMPLE_DETECTIONS)
+    setSelectedDetectionId(SAMPLE_DETECTIONS[0].detection_id)
+    setApiError(null)
+  }
+
+  function handleResetAll() {
+    if (isProcessing) handleCancelOperation()
+    setSelectedFile(null)
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setPreviewUrl(null)
+    setDetections([])
+    setSelectedDetectionId(null)
+    setApiError(null)
+    setActiveJobId(null)
+    setStageMessage('')
+  }
 
   return (
-    <main className="shell">
-      <header className="shell__header">
-        <div className="shell__brand">
-          <span className="shell__logo-icon">🌊</span>
-          <h1>Team Synora</h1>
-        </div>
-        <div className="shell__tag">SIH26057</div>
-      </header>
+    <div className="synora-app">
+      <Header />
 
-      <section className="shell__body">
-        <div className="card">
-          <h2>Desktop Application Shell</h2>
-          <p className="description">
-            AI-Powered Automated Underwater Marine Debris and Anomaly Detection using Side-Scan Sonar Imagery
-          </p>
-
-          <div className="status-grid">
-            {/* Shell Status */}
-            <div className="status-item">
-              <span className="status-label">Desktop Shell</span>
-              <div className="status-badge status-badge--active">
-                <span className="status-dot status-dot--active"></span>
-                <span>Active (Electron + Vite)</span>
-              </div>
-            </div>
-
-            {/* Backend Connectivity Indicator */}
-            <div className="status-item">
-              <div className="status-label-group">
-                <span className="status-label">Backend API</span>
-                <code className="status-endpoint">{API_BASE_URL}</code>
-              </div>
-
-              <div className="backend-status-row">
-                {backendStatus === 'checking' && (
-                  <div className="status-badge status-badge--checking">
-                    <span className="status-dot status-dot--checking"></span>
-                    <span>Checking...</span>
-                  </div>
-                )}
-                {backendStatus === 'connected' && (
-                  <div className="status-badge status-badge--connected">
-                    <span className="status-dot status-dot--connected"></span>
-                    <span>Connected {backendLatency ? `(${backendLatency}ms)` : ''}</span>
-                  </div>
-                )}
-                {backendStatus === 'offline' && (
-                  <div className="status-badge status-badge--offline">
-                    <span className="status-dot status-dot--offline"></span>
-                    <span>Offline (Ready for Mock / B2)</span>
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  className="btn btn--refresh"
-                  onClick={checkBackendHealth}
-                  disabled={backendStatus === 'checking'}
-                  title="Ping backend health endpoint"
-                >
-                  {backendStatus === 'checking' ? '...' : 'Ping'}
-                </button>
-              </div>
-
-              {lastChecked && (
-                <p className="status-hint">
-                  {backendStatus === 'connected'
-                    ? `Health check verified at ${lastChecked}`
-                    : `Last checked at ${lastChecked}. Ensure FastAPI backend is running on ${API_BASE_URL}`}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="versions-info">
-            <span className="versions-label">Runtime Bridge:</span>
-            <p className="versions-text">
-              {versions
-                ? `Electron ${versions.electron} · Chromium ${versions.chrome} · Node ${versions.node}`
-                : 'Running in browser context (preload bridge not detected).'}
+      <main className="synora-main">
+        {/* Top Control Bar */}
+        <section className="top-banner">
+          <div className="top-banner__info">
+            <h2>Underwater Debris &amp; Anomaly Detection</h2>
+            <p>
+              Autonomous sidescan sonar processing pipeline conforming to B2 API Contract (`POST /api/v1/detect`).
             </p>
           </div>
-        </div>
-      </section>
-    </main>
+
+          <div className="top-banner__actions">
+            {detections.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn--secondary btn--sm"
+                  onClick={() => setIsExportOpen(true)}
+                >
+                  📥 Export Report ({detections.length})
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--secondary btn--sm"
+                  onClick={handleResetAll}
+                >
+                  🔄 Reset
+                </button>
+              </>
+            )}
+
+            {detections.length === 0 && (
+              <button
+                type="button"
+                className="btn btn--secondary btn--sm"
+                onClick={handleLoadSampleData}
+                title="Load sample schema-compliant detections"
+              >
+                Load Sample Contract Data
+              </button>
+            )}
+          </div>
+        </section>
+
+        {/* Upload & Stage Area */}
+        <section className="upload-container">
+          <UploadDropzone
+            onFileSelected={handleFileSelected}
+            selectedFile={selectedFile}
+            isProcessing={isProcessing}
+            onStartDetection={handleStartDetection}
+          />
+        </section>
+
+        {/* In-Flight Processing Status */}
+        {isProcessing && (
+          <section className="status-container">
+            <ProcessingStatus
+              stageMessage={stageMessage}
+              onCancel={handleCancelOperation}
+            />
+          </section>
+        )}
+
+        {/* Standard Error Banner */}
+        {apiError && (
+          <section className="error-container">
+            <ErrorBanner
+              error={apiError}
+              onRetry={handleStartDetection}
+              onDismiss={() => setApiError(null)}
+            />
+          </section>
+        )}
+
+        {/* Detection Results & Inspection Views */}
+        {detections.length > 0 && (
+          <section className="inspection-workspace">
+            {/* View Switcher Tabs */}
+            <div className="workspace-tabs">
+              <button
+                type="button"
+                className={`tab-btn ${activeViewTab === 'viewer' ? 'tab-btn--active' : ''}`}
+                onClick={() => setActiveViewTab('viewer')}
+              >
+                🖼️ Sonar Viewer &amp; Overlays
+              </button>
+              <button
+                type="button"
+                className={`tab-btn ${activeViewTab === 'map' ? 'tab-btn--active' : ''}`}
+                onClick={() => setActiveViewTab('map')}
+              >
+                🧭 Geospatial Plot (WGS84)
+              </button>
+              {activeJobId && (
+                <span className="job-indicator">Job ID: {activeJobId}</span>
+              )}
+            </div>
+
+            <div className="workspace-grid">
+              {/* Left Pane: Sonar Viewer or GIS Map */}
+              <div className="workspace-pane workspace-pane--primary">
+                {activeViewTab === 'viewer' ? (
+                  <DetectionViewer
+                    imageUrl={previewUrl}
+                    detections={detections}
+                    selectedDetectionId={selectedDetectionId}
+                    onSelectDetection={setSelectedDetectionId}
+                    confidenceThreshold={confidenceThreshold}
+                    onThresholdChange={setConfidenceThreshold}
+                  />
+                ) : (
+                  <GeospatialMap
+                    detections={detections}
+                    selectedDetectionId={selectedDetectionId}
+                    onSelectDetection={setSelectedDetectionId}
+                  />
+                )}
+              </div>
+
+              {/* Right Pane: Itemized Results List */}
+              <div className="workspace-pane workspace-pane--secondary">
+                <ResultList
+                  detections={detections}
+                  selectedDetectionId={selectedDetectionId}
+                  onSelectDetection={setSelectedDetectionId}
+                  confidenceThreshold={confidenceThreshold}
+                />
+              </div>
+            </div>
+          </section>
+        )}
+      </main>
+
+      {/* Export Report Modal */}
+      {isExportOpen && (
+        <ReportModal
+          detections={detections}
+          fileName={selectedFile?.name || 'sonar_scan'}
+          onClose={() => setIsExportOpen(false)}
+        />
+      )}
+    </div>
   )
 }
