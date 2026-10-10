@@ -159,3 +159,31 @@ async def job_status_websocket(websocket: WebSocket, job_id: str):
             data = await websocket.receive_text()
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket, job_id)
+
+from backend.schemas import PaginatedHistoryResponse, JobHistorySummary
+
+@router.get("/jobs", tags=["Jobs"], response_model=PaginatedHistoryResponse)
+async def list_historical_jobs(skip: int = 0, limit: int = 50, status: str = None):
+    """
+    Fetch a paginated list of historical detection jobs.
+    """
+    try:
+        jobs = await job_manager.get_jobs_history(skip=skip, limit=limit, status_filter=status)
+        
+        summaries = [
+            JobHistorySummary(
+                job_id=j.job_id,
+                status=j.status,
+                created_at=j.created_at,
+                updated_at=j.updated_at,
+                detection_count=len(j.detections) if j.detections else 0
+            ) for j in jobs
+        ]
+        
+        return PaginatedHistoryResponse(
+            items=summaries,
+            skip=skip,
+            limit=limit
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

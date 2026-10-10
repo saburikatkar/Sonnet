@@ -100,4 +100,28 @@ class AsyncJobManager:
             await session.execute(delete(DBJob))
             await session.commit()
 
+
+
+    async def get_jobs_history(self, skip: int = 0, limit: int = 50, status_filter: Optional[str] = None) -> List[JobRecord]:
+        await self._ensure_init()
+        async with AsyncSessionLocal() as session:
+            stmt = select(DBJob)
+            if status_filter:
+                stmt = stmt.filter(DBJob.status == status_filter)
+            stmt = stmt.order_by(DBJob.created_at.desc()).offset(skip).limit(limit)
+            
+            result = await session.execute(stmt)
+            db_jobs = result.scalars().all()
+            
+            return [
+                JobRecord(
+                    job_id=job.job_id,
+                    status=job.status,
+                    created_at=job.created_at,
+                    updated_at=job.updated_at,
+                    detections=job.detections or [],
+                    error=job.error
+                )
+                for job in db_jobs
+            ]
 job_manager = AsyncJobManager()
