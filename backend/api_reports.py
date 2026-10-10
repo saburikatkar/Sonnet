@@ -30,5 +30,7 @@ def generate_report(request: ReportRequest):
             )
         else:
             raise HTTPException(status_code=400, detail="Invalid format. Must be 'csv' or 'geojson'.")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

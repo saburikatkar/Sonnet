@@ -171,6 +171,9 @@ async def list_historical_jobs(
     """
     Fetch a paginated list of historical detection jobs.
     """
+    VALID_STATUSES = {'pending', 'processing', 'completed', 'failed'}
+    if status is not None and status not in VALID_STATUSES:
+        raise HTTPException(status_code=422, detail=f"Invalid status filter '{status}'. Must be one of: {sorted(VALID_STATUSES)}")
     try:
         jobs = await job_manager.get_jobs_history(skip=skip, limit=limit, status_filter=status)
         
@@ -191,4 +194,5 @@ async def list_historical_jobs(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
