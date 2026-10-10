@@ -1,6 +1,13 @@
 import numpy as np
+from typing import List, Dict, Any, Union
 
-def extract_tiles(image, tile_width, tile_height, overlap_x=0, overlap_y=0):
+def extract_tiles(
+    image: np.ndarray, 
+    tile_width: int, 
+    tile_height: int, 
+    overlap_x: int = 0, 
+    overlap_y: int = 0
+) -> List[Dict[str, Any]]:
     """
     Extracts tiles from an image with a specified size and overlap.
     Handles boundaries by snapping the last tile to the edge if the image is larger than the tile size,
@@ -14,7 +21,7 @@ def extract_tiles(image, tile_width, tile_height, overlap_x=0, overlap_y=0):
         overlap_y (int): The vertical overlap between tiles.
 
     Returns:
-        list of dict: A list of dictionaries containing the tile and its metadata.
+        List[Dict[str, Any]]: A list of dictionaries containing the tile array and its metadata.
     """
     if not isinstance(image, np.ndarray):
         raise TypeError("Input image must be a numpy ndarray.")
