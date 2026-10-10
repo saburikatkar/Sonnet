@@ -6,6 +6,16 @@
 export const API_BASE_URL = 'http://127.0.0.1:8000'
 
 /**
+ * Derives the WebSocket URL for streaming job status updates
+ * @param {string} jobId
+ * @returns {string}
+ */
+export function getJobWebSocketUrl(jobId) {
+  const wsBase = API_BASE_URL.replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:')
+  return `${wsBase}/api/v1/jobs/${jobId}/ws`
+}
+
+/**
  * Standard error shape parser
  * @param {Response} response
  * @returns {Promise<Error>}
@@ -69,7 +79,7 @@ export async function initiateDetection(file, { signal } = {}) {
 }
 
 /**
- * 3. Poll Job Status Endpoint: GET /api/v1/jobs/{job_id}
+ * 3. REST Fallback Job Status Endpoint: GET /api/v1/jobs/{job_id}
  * @param {string} jobId
  * @param {AbortSignal} [signal]
  * @returns {Promise<{job_id: string, status: string, detections: Array, error?: any}>}
@@ -83,21 +93,23 @@ export async function getJobStatus(jobId, signal) {
 }
 
 /**
- * High-level detection with managed async polling loop
+ * Real-time detection with native WebSocket streaming
+ * Completely replaces HTTP polling with zero-latency WebSocket push updates.
  * @param {File} file
  * @param {Object} [options]
  * @param {AbortSignal} [options.signal]
  * @param {(stage: string, data?: any) => void} [options.onStageChange]
- * @param {number} [options.pollIntervalMs]
- * @param {number} [options.maxAttempts]
+ * @param {(jobId: string) => void} [options.onJobRegistered]
+ * @param {number} [options.timeoutMs]
+ * @returns {Promise<{job_id: string, status: string, detections: Array}>}
  */
 export async function detectFileAsync(
   file,
   {
     signal,
     onStageChange,
-    pollIntervalMs = 1500,
-    maxAttempts = 30,
+    onJobRegistered,
+    timeoutMs = 60000,
   } = {}
 ) {
   onStageChange?.('Uploading sonar payload and registering async job...')
@@ -110,43 +122,136 @@ export async function detectFileAsync(
     return initResult
   }
 
-  onStageChange?.(`Job registered (${jobId}). Initializing inference...`, { jobId })
+  onJobRegistered?.(jobId)
+  onStageChange?.(`Job registered (${jobId}). Connecting real-time WebSocket stream...`, { jobId })
 
-  // Polling loop against GET /api/v1/jobs/{job_id}
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    onStageChange?.(`Inference running on server... (poll attempt ${attempt}/${maxAttempts})`, { jobId, attempt })
+  return new Promise((resolve, reject) => {
+    const wsBase = API_BASE_URL.replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:')
+    const primaryWsUrl = `${wsBase}/api/v1/jobs/${jobId}/ws`
+    const fallbackWsUrl = `${wsBase}/jobs/${jobId}/ws`
 
-    const statusData = await getJobStatus(jobId, signal)
+    let ws = null
+    let timer = null
+    let isSettled = false
+    let triedFallback = false
 
-    if (statusData.status === 'completed') {
-      onStageChange?.('Inference completed successfully. Rendering detections...')
-      return statusData
-    }
-
-    if (statusData.status === 'failed') {
-      const errMsg = statusData.error?.message || 'Detection job failed on backend.'
-      const err = new Error(errMsg)
-      err.code = statusData.error?.code || 'JOB_FAILED'
-      err.details = statusData.error?.details || {}
-      throw err
-    }
-
-    // Abortable wait for next poll interval
-    await new Promise((resolve, reject) => {
-      if (signal?.aborted) return reject(new DOMException('Operation aborted by user', 'AbortError'))
-      
-      const timeoutId = setTimeout(resolve, pollIntervalMs)
-      
-      if (signal) {
-        signal.addEventListener('abort', () => {
-          clearTimeout(timeoutId)
-          reject(new DOMException('Operation aborted by user', 'AbortError'))
-        }, { once: true })
+    const cleanup = () => {
+      if (timer) {
+        clearTimeout(timer)
+        timer = null
       }
-    })
-  }
+      if (ws) {
+        try {
+          ws.onopen = null
+          ws.onmessage = null
+          ws.onerror = null
+          ws.onclose = null
+          if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+            ws.close()
+          }
+        } catch {
+          // ignore cleanup errors
+        }
+        ws = null
+      }
+      if (signal && handleAbort) {
+        signal.removeEventListener('abort', handleAbort)
+      }
+    }
 
-  throw new Error(`Detection job timed out after ${maxAttempts} polling attempts.`)
+    const finish = (fn, val) => {
+      if (!isSettled) {
+        isSettled = true
+        cleanup()
+        fn(val)
+      }
+    }
+
+    const handleAbort = () => {
+      finish(reject, new DOMException('Operation aborted by user', 'AbortError'))
+    }
+
+    if (signal) {
+      if (signal.aborted) {
+        return handleAbort()
+      }
+      signal.addEventListener('abort', handleAbort, { once: true })
+    }
+
+    // Set overall job timeout
+    timer = setTimeout(() => {
+      finish(reject, new Error(`Detection job timed out after ${timeoutMs / 1000} seconds.`))
+    }, timeoutMs)
+
+    function connect(url) {
+      try {
+        ws = new WebSocket(url)
+      } catch (err) {
+        finish(reject, new Error(`Failed to initialize WebSocket connection: ${err.message}`))
+        return
+      }
+
+      ws.onopen = () => {
+        onStageChange?.(`WebSocket connected for job ${jobId}. Streaming inference telemetry...`, { jobId })
+      }
+
+      ws.onmessage = (event) => {
+        try {
+          const payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
+          const { status, error } = payload
+
+          if (status === 'processing' || status === 'processing_async') {
+            onStageChange?.(`Inference active on server (${status})...`, { jobId, payload })
+          } else if (status === 'completed') {
+            onStageChange?.('Inference completed successfully. Rendering detections...', { jobId, payload })
+            finish(resolve, payload)
+          } else if (status === 'failed') {
+            const errMsg = error?.message || 'Detection job failed on backend.'
+            const err = new Error(errMsg)
+            err.code = error?.code || 'JOB_FAILED'
+            err.details = error?.details || {}
+            finish(reject, err)
+          } else {
+            onStageChange?.(`Status update: ${status}`, { jobId, payload })
+          }
+        } catch (parseErr) {
+          console.error('Failed to parse WebSocket JSON payload:', parseErr, event.data)
+        }
+      }
+
+      ws.onerror = (event) => {
+        // If initial connection to primary endpoint fails to establish, attempt fallback endpoint
+        if (!triedFallback && ws && ws.readyState !== WebSocket.OPEN) {
+          triedFallback = true
+          try {
+            ws.close()
+          } catch {
+            // ignore
+          }
+          connect(fallbackWsUrl)
+        }
+      }
+
+      ws.onclose = (event) => {
+        if (!isSettled) {
+          if (!triedFallback && event.code !== 1000 && event.code !== 4004) {
+            triedFallback = true
+            connect(fallbackWsUrl)
+            return
+          }
+          if (event.code === 4004) {
+            const err = new Error(`Job not found on backend (${jobId})`)
+            err.code = 'JOB_NOT_FOUND'
+            finish(reject, err)
+          } else if (event.code !== 1000) {
+            finish(reject, new Error(`WebSocket closed unexpectedly (code ${event.code}): ${event.reason || 'Connection lost'}`))
+          }
+        }
+      }
+    }
+
+    connect(primaryWsUrl)
+  })
 }
 
 /**
