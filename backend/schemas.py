@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Tuple, Dict, Any
+from typing import List, Optional, Tuple, Dict, Any, Union
 from datetime import datetime
 
 class GeoJSONPoint(BaseModel):
@@ -46,21 +46,31 @@ class BoundingBox(BaseModel):
     x_max: float = Field(..., ge=0.0, le=1.0)
     y_max: float = Field(..., ge=0.0, le=1.0)
 
+class SimpleGeotag(BaseModel):
+    latitude: float
+    longitude: float
+    depth_meters: Optional[float] = None
+
 class DetectionResult(BaseModel):
     detection_id: str
     class_name: str = Field(..., description="E.g., plastic, metal, fishing_net, tire, shipwreck, unknown")
     confidence: float = Field(..., ge=0.0, le=1.0)
     bbox: BoundingBox
-    geotag: Optional[GeotaggedDetection] = None
+    geotag: Optional[Union[SimpleGeotag, GeotaggedDetection, Dict[str, Any]]] = None
 
 class DetectResponse(BaseModel):
     job_id: Optional[str] = None
     status: str
-    detections: List[DetectionResult]
-
+    detections: List[DetectionResult] = Field(default_factory=list)
 
 from typing import Literal
 
 class ReportRequest(BaseModel):
     format: Literal["csv", "geojson"] = Field(..., description="The format of the report to generate")
     detections: List[DetectionResult] = Field(..., description="List of detections to include in the report")
+
+class JobStatusResponse(BaseModel):
+    job_id: str
+    status: str
+    detections: List[DetectionResult] = Field(default_factory=list)
+    error: Optional[ErrorDetail] = None
